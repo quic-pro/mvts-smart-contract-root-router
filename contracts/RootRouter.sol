@@ -13,18 +13,18 @@ contract RootRouter is Ownable {
 
     enum CustomerNumberMode { Number, Pool }
 
+    struct Router {
+        uint128 chainId;
+        string adr;
+        uint128 poolCodeLength;
+    }
+
     struct CustomerNumber {
         address owner;
         uint256 subscriptionEndTime;
         bool isBlocked;
         CustomerNumberMode mode;
         Router router;
-    }
-
-    struct Router {
-        uint128 chainId;
-        string adr;
-        uint128 poolCodeLength;
     }
 
 

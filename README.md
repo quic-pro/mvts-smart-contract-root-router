@@ -88,17 +88,21 @@ yarn verify:mumbai
 ```
 
 ## Verify contracts in mainnet
+
 etherscan.io
-```
+
+```bash
 yarn verify:eth
 ```
 
 bscscan.com
-```
+
+```bash
 yarn verify:bsc
 ```
 
 polygonscan.com
-```
+
+```bash
 yarn verify:polygon
 ```
