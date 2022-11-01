@@ -4,11 +4,16 @@
 pragma solidity 0.8.7;
 
 
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 
 contract RootRouter is Ownable {
+    using SafeMath for uint256;
+
+
+
     // ----- CUSTOM TYPES ------------------------------------------------------
 
     enum CustomerNumberMode { Number, Pool }
@@ -32,15 +37,15 @@ contract RootRouter is Ownable {
     // ----- SETTINGS ----------------------------------------------------------
 
     uint256 constant public POOL_CODE_LENGTH = 3;
-    uint256 constant public POOL_SIZE = 10**POOL_CODE_LENGTH - 10**(POOL_CODE_LENGTH - 1);
-    uint256 constant public MIN_NUMBER = 10**(POOL_CODE_LENGTH - 1);
-    uint256 constant public MAX_NUMBER = 10**POOL_CODE_LENGTH - 1;
+    uint256 constant public POOL_SIZE = 900;
+    uint256 constant public MIN_NUMBER = 100;
+    uint256 constant public MAX_NUMBER = 999;
 
     uint256 public buyPrice = 10 ether;
     uint256 public renewalOwnershipPrice = 7 ether;
     uint256 public modeChangePrice = 5 ether;
-    uint256 public subscriptionDuration = 86400 * 365 * 10;
-    uint256 public ttl = 100;
+    uint256 public subscriptionDuration = 315532800; // 10 years
+    uint256 public ttl = 864000; // 10 days
 
     string public sipDomain = "sip.quic.pro";
 
@@ -79,7 +84,7 @@ contract RootRouter is Ownable {
     // ----- UTILS -------------------------------------------------------------
 
     function getCustomerNumber(uint256 number) internal view returns(CustomerNumber storage) {
-        return pool[number - 100];
+        return pool[number.sub(100)];
     }
 
     function isNumberMode(CustomerNumber storage customerNumber) internal view returns(bool) {
@@ -109,7 +114,7 @@ contract RootRouter is Ownable {
     // ----- SMART CONTRACT MANAGEMENT ------------------------------------------
 
     function withdraw() external onlyOwner {
-        payable(msg.sender).transfer(address(this).balance);
+        payable(owner()).transfer(address(this).balance);
     }
 
     function setBuyPrice(uint256 newPrice) external onlyOwner {
@@ -146,7 +151,7 @@ contract RootRouter is Ownable {
         checkNumber(number);
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
-        customerNumber.subscriptionEndTime = block.timestamp + newExpirationTime;
+        customerNumber.subscriptionEndTime = block.timestamp.add(newExpirationTime);
     }
 
     function changeCustomerNumberStatus(uint256 number, bool isBlocked) external onlyOwner {
@@ -169,14 +174,14 @@ contract RootRouter is Ownable {
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         customerNumber.owner = msg.sender;
-        customerNumber.subscriptionEndTime = block.timestamp + subscriptionDuration;
+        customerNumber.subscriptionEndTime = block.timestamp.add(subscriptionDuration);
     }
 
     function renewSubscription(uint256 number) external payable onlyCustomerNumberOwner(number) {
         checkValue(msg.value, renewalOwnershipPrice);
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
-        customerNumber.subscriptionEndTime += subscriptionDuration;
+        customerNumber.subscriptionEndTime = customerNumber.subscriptionEndTime.add(subscriptionDuration);
     }
 
     function changeCustomerNumberMode(uint256 number) external payable onlyCustomerNumberOwner(number) {
