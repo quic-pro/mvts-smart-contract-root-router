@@ -9,6 +9,10 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 
+// TODO: Add possibility of hold
+// TODO: Add set to hold after experation
+// TODO: Add numbers 0 - 99 in hold
+// TODO: Add time for blocked
 contract RootRouter is Ownable {
     using SafeMath for uint256;
 
@@ -42,9 +46,10 @@ contract RootRouter is Ownable {
     uint256 constant public MAX_NUMBER = 999;
 
     uint256 public buyPrice = 10 ether;
-    uint256 public renewalOwnershipPrice = 7 ether;
+    uint256 public subscriptionPricePrice = 7 ether;
     uint256 public modeChangePrice = 5 ether;
     uint256 public subscriptionDuration = 315532800; // 10 years
+    // TODO: Refactory TTL globaly
     uint256 public ttl = 864000; // 10 days
 
     string public sipDomain = "sip.quic.pro";
@@ -58,6 +63,8 @@ contract RootRouter is Ownable {
 
 
     // ----- PUBLIC UTILS ------------------------------------------------------
+
+    // TODO: Add functions: isAvailableForBuy, isBlocked, isHold, getNumberStatus(returns all statuses)
 
     function isValidNumber(uint256 number) internal pure returns(bool) {
         return ((number >= MIN_NUMBER) && (number <= MAX_NUMBER));
@@ -114,20 +121,20 @@ contract RootRouter is Ownable {
         payable(owner()).transfer(address(this).balance);
     }
 
-    function setBuyPrice(uint256 newPrice) external onlyOwner {
-        buyPrice = newPrice;
+    function setBuyPrice(uint256 newBuyPrice) external onlyOwner {
+        buyPrice = newBuyPrice;
     }
 
-    function setRenewalOwnershipPrice(uint256 newPrice) external onlyOwner {
-        renewalOwnershipPrice = newPrice;
+    function setSubscriptionPricePrice(uint256 newSubscriptionPrice) external onlyOwner {
+        subscriptionPrice = newSubscriptionPrice;
     }
 
-    function setModeChangePrice(uint256 newPrice) external onlyOwner {
-        modeChangePrice = newPrice;
+    function setModeChangePrice(uint256 newModeChangePrice) external onlyOwner {
+        modeChangePrice = newModeChangePrice;
     }
 
-    function setSubscriptionDuration(uint256 newDuration) external onlyOwner {
-        subscriptionDuration = newDuration;
+    function setSubscriptionDuration(uint256 newSubscriptionDuration) external onlyOwner {
+        subscriptionDuration = newSubscriptionDuration;
     }
 
     function setTtl(uint256 newTtl) external onlyOwner {
@@ -151,6 +158,7 @@ contract RootRouter is Ownable {
         customerNumber.subscriptionEndTime = block.timestamp.add(newExpirationTime);
     }
 
+    // TODO: Refactory: isBlocked, isHold
     function changeCustomerNumberStatus(uint256 number, bool isBlocked) external onlyOwner {
         require(isValidNumber(number), "Invalid number!");
 
@@ -162,6 +170,7 @@ contract RootRouter is Ownable {
 
     // ----- CUSTOMER NUMBER MANAGEMENT -----------------------------------------
 
+    // TODO: Refactory to ERC721 (like ENS Name)
     function buy(uint256 number) external payable {
         require(isValidNumber(number), "Invalid number!");
         require(checkPayment(msg.value, buyPrice), "Insufficient funds!");
