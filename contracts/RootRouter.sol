@@ -67,13 +67,13 @@ contract RootRouter is Ownable {
         return ((received >= expected) || (msg.sender == owner()));
     }
 
-    function isCustomerNumberOwner(uint256 number, address customerNumberOwner) public view returns(bool)  {
+    function isCustomerNumberOwner(uint256 number, address customerNumberOwner) public view returns(bool) {
         if (!isValidNumber(number)) {
             return false;
         }
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
-        return ((msg.sender == owner()) || ((customerNumber.owner == msg.sender) && (customerNumber.subscriptionEndTime > block.timestamp)));
+        return ((customerNumberOwner == owner()) || ((customerNumber.owner == customerNumberOwner) && (customerNumber.subscriptionEndTime > block.timestamp)));
     }
 
 
