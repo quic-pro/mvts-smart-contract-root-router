@@ -59,24 +59,21 @@ contract RootRouter is Ownable {
 
     // ----- HELPERS -----------------------------------------------------------
 
-    function checkNumber(uint256 number) internal pure {
-        require((number >= MIN_NUMBER) && (number <= MAX_NUMBER), "Invalid number!");
+    function isValidNumber(uint256 number) internal pure returns(bool) {
+        return ((number >= MIN_NUMBER) && (number <= MAX_NUMBER));
     }
 
-    function checkValue(uint256 received, uint256 expected) internal view {
-        require((received >= expected) || (msg.sender == owner()), "Insufficient funds!");
+    function isEnoughFunds(uint256 received, uint256 expected) internal view returns(bool) {
+        return ((received >= expected) || (msg.sender == owner()));
     }
 
-
-
-    // ----- MODIFIERS ---------------------------------------------------------
-
-    modifier onlyCustomerNumberOwner(uint256 number) {
-        checkNumber(number);
+    function isCustomerNumberOwner(uint256 number, address customerNumberOwner) public view returns(bool)  {
+        if (!isValidNumber(number)) {
+            return false;
+        }
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
-        require((msg.sender == owner()) || ((customerNumber.owner == msg.sender) && (customerNumber.subscriptionEndTime > block.timestamp)), "You are not a customerNumber owner!");
-        _;
+        return ((msg.sender == owner()) || ((customerNumber.owner == msg.sender) && (customerNumber.subscriptionEndTime > block.timestamp)));
     }
 
 
@@ -142,20 +139,20 @@ contract RootRouter is Ownable {
     }
 
     function takeAwayOwnership(uint256 number) external onlyOwner {
-        checkNumber(number);
+        require(isValidNumber(number), "Invalid number!");
 
         clearCustomerNumber(number);
     }
 
     function setExpirationTimeCustomerNumber(uint256 number, uint256 newExpirationTime) external onlyOwner {
-        checkNumber(number);
+        require(isValidNumber(number), "Invalid number!");
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         customerNumber.subscriptionEndTime = block.timestamp.add(newExpirationTime);
     }
 
     function changeCustomerNumberStatus(uint256 number, bool isBlocked) external onlyOwner {
-        checkNumber(number);
+        require(isValidNumber(number), "Invalid number!");
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         customerNumber.isBlocked = isBlocked;
@@ -166,8 +163,8 @@ contract RootRouter is Ownable {
     // ----- CUSTOMER NUMBER MANAGEMENT -----------------------------------------
 
     function buy(uint256 number) external payable {
-        checkNumber(number);
-        checkValue(msg.value, buyPrice);
+        require(isValidNumber(number), "Invalid number!");
+        require(isEnoughFunds(msg.value, buyPrice), "Insufficient funds!");
         require(!hasOwner(number), "The customerNumber already has an owner!");
 
         clearCustomerNumber(number);
@@ -177,15 +174,21 @@ contract RootRouter is Ownable {
         customerNumber.subscriptionEndTime = block.timestamp.add(subscriptionDuration);
     }
 
-    function renewSubscription(uint256 number) external payable onlyCustomerNumberOwner(number) {
-        checkValue(msg.value, renewalOwnershipPrice);
+    function renewSubscription(uint256 number) external payable returns(string[1] memory) {
+        if (!isCustomerNumberOwner(number, msg.sender) || !isEnoughFunds(msg.value, renewalOwnershipPrice)) {
+            return ["400"];
+        }
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         customerNumber.subscriptionEndTime = customerNumber.subscriptionEndTime.add(subscriptionDuration);
+
+        return ["200"];
     }
 
-    function changeCustomerNumberMode(uint256 number) external payable onlyCustomerNumberOwner(number) {
-        checkValue(msg.value, modeChangePrice);
+    function changeCustomerNumberMode(uint256 number) external payable returns(string[1] memory) {
+        if (!isCustomerNumberOwner(number, msg.sender) || !isEnoughFunds(msg.value, modeChangePrice)) {
+            return ["400"];
+        }
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         if (isNumberMode(customerNumber)) {
@@ -194,20 +197,34 @@ contract RootRouter is Ownable {
             customerNumber.mode = CustomerNumberMode.Number;
             customerNumber.router = Router(0, Strings.toHexString(address(0)), 0);
         }
+
+        return ["200"];
     }
 
-    function setCustomerNumberRouter(uint256 number, uint128 chainId, string memory adr, uint128 poolCodeLength) external onlyCustomerNumberOwner(number) {
+    function setCustomerNumberRouter(uint256 number, uint128 chainId, string memory adr, uint128 poolCodeLength) external returns(string[1] memory) {
+        if (!isCustomerNumberOwner(number, msg.sender)) {
+            return ["400"];
+        }
+
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         require(isPoolMode(customerNumber), "The CustomerNumber is not a pool!");
 
         customerNumber.router.chainId = chainId;
         customerNumber.router.adr = adr;
         customerNumber.router.poolCodeLength = poolCodeLength;
+
+        return ["200"];
     }
 
-    function transferOwnershipOfCustomerNumber(uint256 number, address newOwner) external onlyCustomerNumberOwner(number) {
+    function transferOwnershipOfCustomerNumber(uint256 number, address newOwner) external returns(string[1] memory) {
+        if (!isCustomerNumberOwner(number, msg.sender)) {
+            return ["400"];
+        }
+
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         customerNumber.owner = newOwner;
+
+        return ["200"];
     }
 
 
@@ -215,27 +232,32 @@ contract RootRouter is Ownable {
     // ----- ROUTING ------------------------------------------------------------
 
     function getNextNode(uint256 number) public view returns(string[] memory) {
-        checkNumber(number);
-        require(hasOwner(number), "The number is not in service!");
+        if (!isValidNumber(number) || !hasOwner(number)) {
+            string[] memory result = new string[](1);
+            result[0] = "400";
+            return result;
+        }
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         if (isNumberMode(customerNumber)) {
-            string[] memory nextNode = new string[](4);
-            nextNode[0] = customerNumber.isBlocked ? "0" : "1";
-            nextNode[1] = "0";
-            nextNode[2] = Strings.toHexString(customerNumber.owner);
-            nextNode[3] = sipDomain;
+            string[] memory result = new string[](5);
+            result[0] = "200";
+            result[1] = customerNumber.isBlocked ? "0" : "1";
+            result[2] = "0";
+            result[3] = Strings.toHexString(customerNumber.owner);
+            result[4] = sipDomain;
 
-            return nextNode;
+            return result;
         } else {
-            string[] memory nextNode = new string[](5);
-            nextNode[0] = customerNumber.isBlocked ? "0" : "1";
-            nextNode[1] = Strings.toString(customerNumber.router.poolCodeLength);
-            nextNode[2] = Strings.toString(customerNumber.router.chainId);
-            nextNode[3] = customerNumber.router.adr;
-            nextNode[4] = Strings.toString(ttl);
+            string[] memory result = new string[](6);
+            result[0] = "200";
+            result[1] = customerNumber.isBlocked ? "0" : "1";
+            result[2] = Strings.toString(customerNumber.router.poolCodeLength);
+            result[3] = Strings.toString(customerNumber.router.chainId);
+            result[4] = customerNumber.router.adr;
+            result[5] = Strings.toString(ttl);
 
-            return nextNode;
+            return result;
         }
     }
 }
