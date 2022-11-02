@@ -10,7 +10,6 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 
 // TODO: Add possibility of hold
-// TODO: Add set to hold after experation
 contract RootRouter is Ownable {
     using SafeMath for uint256;
 
