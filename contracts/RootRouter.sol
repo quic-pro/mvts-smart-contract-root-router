@@ -57,6 +57,7 @@ contract RootRouter is Ownable {
     uint256 public subscriptionPrice = 7 ether;
     uint256 public modeChangePrice = 5 ether;
     uint256 public subscriptionDuration = 315532800; // 10 years
+    uint256 public numberFreezeDuration = 7776000; // 3 months
     // TODO: Refactory TTL globaly
     uint256 public ttl = 864000; // 10 days
 
@@ -100,22 +101,20 @@ contract RootRouter is Ownable {
     }
 
     function isFree(uint256 number) public view returns(bool) {
-        CustomerNumber storage customerNumber = getCustomerNumber(number);
-        return ((customerNumber.owner != address(0)) && (customerNumber.subscriptionEndTime > block.timestamp));
+        return isFree(getCustomerNumber(number));
     }
 
     function isBlocked(uint256 number) public view returns(bool) {
-        CustomerNumber storage customerNumber = getCustomerNumber(number);
-        return customerNumber.isBlocked;
+        return isBlocked(getCustomerNumber(number));
     }
 
     function isHolded(uint256 number) public view returns(bool) {
-        CustomerNumber storage customerNumber = getCustomerNumber(number);
-        return (block.timestamp) > customerNumber.holdingEndTime;
+        return isHolded(getCustomerNumber(number));
     }
 
     function isAvailableForBuy(uint256 number) public view returns(bool) {
-        return (!isFree(number) && !isBlocked(number) && !isHolded(number));
+        CustomerNumber storage customerNumber = getCustomerNumber(number);
+        return isAvailableForBuy(customerNumber);
     }
 
     function getMode(uint256 number) public view returns(CustomerNumberMode) {
@@ -126,10 +125,10 @@ contract RootRouter is Ownable {
     function getNumberStatus(uint256 number) public view returns(NumberStatus memory) {
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         return NumberStatus(
-            isBlocked(number),
-            isFree(number),
-            isHolded(number),
-            isAvailableForBuy(number),
+            isBlocked(customerNumber),
+            isFree(customerNumber),
+            isHolded(customerNumber),
+            isAvailableForBuy(customerNumber),
             customerNumber.subscriptionEndTime,
             customerNumber.holdingEndTime
         );
@@ -167,6 +166,22 @@ contract RootRouter is Ownable {
         return pool[number];
     }
 
+    function isFree(CustomerNumber storage customerNumber) internal view returns(bool) {
+        return ((customerNumber.owner != address(0)) && (customerNumber.subscriptionEndTime > block.timestamp));
+    }
+
+    function isBlocked(CustomerNumber storage customerNumber) internal view returns(bool) {
+        return customerNumber.isBlocked;
+    }
+
+    function isHolded(CustomerNumber storage customerNumber) internal view returns(bool) {
+        return (block.timestamp) > customerNumber.holdingEndTime;
+    }
+
+    function isAvailableForBuy(CustomerNumber storage customerNumber) internal view returns(bool) {
+        return (!isFree(customerNumber) && !isBlocked(customerNumber) && !isHolded(customerNumber));
+    }
+
     function isNumberMode(CustomerNumber storage customerNumber) internal view returns(bool) {
         return (customerNumber.mode == CustomerNumberMode.Number);
     }
@@ -198,6 +213,10 @@ contract RootRouter is Ownable {
 
     function setSubscriptionPricePrice(uint256 newSubscriptionPrice) external onlyOwner {
         subscriptionPrice = newSubscriptionPrice;
+    }
+
+    function setNumberFreezeDuration(uint256 newNumberFreezeDuration) external onlyOwner {
+        numberFreezeDuration = newNumberFreezeDuration;
     }
 
     function setModeChangePrice(uint256 newModeChangePrice) external onlyOwner {
@@ -267,6 +286,7 @@ contract RootRouter is Ownable {
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         customerNumber.subscriptionEndTime = customerNumber.subscriptionEndTime.add(subscriptionDuration);
+        customerNumber.holdingEndTime = block.timestamp;
 
         return ["200"];
     }
