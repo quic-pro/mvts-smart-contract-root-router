@@ -59,14 +59,17 @@ contract RootRouter is Ownable {
 
     // ----- HELPERS -----------------------------------------------------------
 
+
     function isValidNumber(uint256 number) internal pure returns(bool) {
         return ((number >= MIN_NUMBER) && (number <= MAX_NUMBER));
     }
 
+    // TODO rename to check payment
     function isEnoughFunds(uint256 received, uint256 expected) internal view returns(bool) {
         return ((received >= expected) || (msg.sender == owner()));
     }
 
+    // TODO rename Customer to addres
     function isCustomerNumberOwner(uint256 number, address customerNumberOwner) public view returns(bool) {
         if (!isValidNumber(number)) {
             return false;
@@ -77,9 +80,10 @@ contract RootRouter is Ownable {
     }
 
 
-
+    // TODO check internal and public
     // ----- UTILS -------------------------------------------------------------
 
+    // TODO refactore to 1000 and remove sub 
     function getCustomerNumber(uint256 number) internal view returns(CustomerNumber storage) {
         return pool[number.sub(100)];
     }
