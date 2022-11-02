@@ -11,8 +11,6 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 // TODO: Add possibility of hold
 // TODO: Add set to hold after experation
-// TODO: Add numbers 0 - 99 in hold
-// TODO: Add time for blocked
 contract RootRouter is Ownable {
     using SafeMath for uint256;
 
@@ -29,11 +27,21 @@ contract RootRouter is Ownable {
     }
 
     struct CustomerNumber {
+        bool isBlocked;
         address owner;
         uint256 subscriptionEndTime;
-        bool isBlocked;
+        uint256 holdingEndTime;
         CustomerNumberMode mode;
         Router router;
+    }
+
+    struct NumberStatus {
+        bool isBlocked;
+        bool isFree;
+        bool isHolded;
+        bool isAvailableForBuy;
+        uint256 subscriptionEndTime;
+        uint256 holdingEndTime;
     }
 
 
@@ -46,7 +54,7 @@ contract RootRouter is Ownable {
     uint256 constant public MAX_NUMBER = 999;
 
     uint256 public buyPrice = 10 ether;
-    uint256 public subscriptionPricePrice = 7 ether;
+    uint256 public subscriptionPrice = 7 ether;
     uint256 public modeChangePrice = 5 ether;
     uint256 public subscriptionDuration = 315532800; // 10 years
     // TODO: Refactory TTL globaly
@@ -62,9 +70,17 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- PUBLIC UTILS ------------------------------------------------------
+    // ----- CONSTRUCTOR -------------------------------------------------------
 
-    // TODO: Add functions: isAvailableForBuy, isBlocked, isHold, getNumberStatus(returns all statuses)
+    constructor() {
+        for (uint256 number; number < MIN_NUMBER; number = number.add(1)) {
+            pool[number].isBlocked = true;
+        }
+    }
+
+
+
+    // ----- PUBLIC UTILS ------------------------------------------------------
 
     function isValidNumber(uint256 number) internal pure returns(bool) {
         return ((number >= MIN_NUMBER) && (number <= MAX_NUMBER));
@@ -83,26 +99,81 @@ contract RootRouter is Ownable {
         return ((addressNumberOwner == owner()) || ((customerNumber.owner == addressNumberOwner) && (customerNumber.subscriptionEndTime > block.timestamp)));
     }
 
-    function getCustomerNumber(uint256 number) public view returns(CustomerNumber storage) {
-        return pool[number];
-    }
-
-    function isNumberMode(CustomerNumber storage customerNumber) public view returns(bool) {
-        return customerNumber.mode == CustomerNumberMode.Number;
-    }
-
-    function isPoolMode(CustomerNumber storage customerNumber) public view returns(bool) {
-        return customerNumber.mode == CustomerNumberMode.Pool;
-    }
-
-    function hasOwner(uint256 number) public view returns(bool) {
+    function isFree(uint256 number) public view returns(bool) {
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         return ((customerNumber.owner != address(0)) && (customerNumber.subscriptionEndTime > block.timestamp));
+    }
+
+    function isBlocked(uint256 number) public view returns(bool) {
+        CustomerNumber storage customerNumber = getCustomerNumber(number);
+        return customerNumber.isBlocked;
+    }
+
+    function isHolded(uint256 number) public view returns(bool) {
+        CustomerNumber storage customerNumber = getCustomerNumber(number);
+        return (block.timestamp) > customerNumber.holdingEndTime;
+    }
+
+    function isAvailableForBuy(uint256 number) public view returns(bool) {
+        return (!isFree(number) && !isBlocked(number) && !isHolded(number));
+    }
+
+    function getMode(uint256 number) public view returns(CustomerNumberMode) {
+        CustomerNumber storage customerNumber = getCustomerNumber(number);
+        return customerNumber.mode;
+    }
+
+    function getNumberStatus(uint256 number) public view returns(NumberStatus memory) {
+        CustomerNumber storage customerNumber = getCustomerNumber(number);
+        return NumberStatus(
+            isBlocked(number),
+            isFree(number),
+            isHolded(number),
+            isAvailableForBuy(number),
+            customerNumber.subscriptionEndTime,
+            customerNumber.holdingEndTime
+        );
+    }
+
+    function getBlockedNumber() public view returns(bool[POOL_SIZE] memory) {
+        bool[1000] memory blockedNumbers;
+        for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
+            blockedNumbers[number] = isBlocked(number);
+        }
+        return blockedNumbers;
+    }
+
+    function getFreeNumber() public view returns(bool[POOL_SIZE] memory) {
+        bool[1000] memory freeNumbers;
+        for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
+            freeNumbers[number] = isFree(number);
+        }
+        return freeNumbers;
+    }
+
+     function getHoldedNumber() public view returns(bool[POOL_SIZE] memory) {
+        bool[1000] memory holdedNumbers;
+        for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
+            holdedNumbers[number] = isHolded(number);
+        }
+        return holdedNumbers;
     }
 
 
 
     // ----- INTERNAL UTILS ----------------------------------------------------
+
+    function getCustomerNumber(uint256 number) internal view returns(CustomerNumber storage) {
+        return pool[number];
+    }
+
+    function isNumberMode(CustomerNumber storage customerNumber) internal view returns(bool) {
+        return (customerNumber.mode == CustomerNumberMode.Number);
+    }
+
+    function isPoolMode(CustomerNumber storage customerNumber) internal view returns(bool) {
+        return (customerNumber.mode == CustomerNumberMode.Pool);
+    }
 
     function clearCustomerNumber(uint256 number) internal {
         CustomerNumber storage customerNumber = getCustomerNumber(number);
@@ -151,19 +222,25 @@ contract RootRouter is Ownable {
         clearCustomerNumber(number);
     }
 
-    function setExpirationTimeCustomerNumber(uint256 number, uint256 newExpirationTime) external onlyOwner {
+    function setBlockedStatus(uint256 number, bool blockedStatus) external onlyOwner {
+        require(isValidNumber(number), "Invalid number!");
+
+        CustomerNumber storage customerNumber = getCustomerNumber(number);
+        customerNumber.isBlocked = blockedStatus;
+    }
+
+    function setExpirationTime(uint256 number, uint256 newExpirationTime) external onlyOwner {
         require(isValidNumber(number), "Invalid number!");
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         customerNumber.subscriptionEndTime = block.timestamp.add(newExpirationTime);
     }
 
-    // TODO: Refactory: isBlocked, isHold
-    function changeCustomerNumberStatus(uint256 number, bool isBlocked) external onlyOwner {
+    function setHoldingTime(uint256 number, uint256 holdingTime) external onlyOwner {
         require(isValidNumber(number), "Invalid number!");
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
-        customerNumber.isBlocked = isBlocked;
+        customerNumber.holdingEndTime = block.timestamp.add(holdingTime);
     }
 
 
@@ -174,7 +251,7 @@ contract RootRouter is Ownable {
     function buy(uint256 number) external payable {
         require(isValidNumber(number), "Invalid number!");
         require(checkPayment(msg.value, buyPrice), "Insufficient funds!");
-        require(!hasOwner(number), "The customerNumber already has an owner!");
+        require(isFree(number), "The customerNumber already has an owner!");
 
         clearCustomerNumber(number);
 
@@ -184,7 +261,7 @@ contract RootRouter is Ownable {
     }
 
     function renewSubscription(uint256 number) external payable returns(string[1] memory) {
-        if (!isAddressNumberOwner(number, msg.sender) || !checkPayment(msg.value, renewalOwnershipPrice)) {
+        if (!isAddressNumberOwner(number, msg.sender) || !checkPayment(msg.value, subscriptionPrice)) {
             return ["400"];
         }
 
@@ -241,7 +318,7 @@ contract RootRouter is Ownable {
     // ----- ROUTING ------------------------------------------------------------
 
     function getNextNode(uint256 number) public view returns(string[] memory) {
-        if (!isValidNumber(number) || !hasOwner(number)) {
+        if (!isValidNumber(number) || isFree(number)) {
             string[] memory result = new string[](1);
             result[0] = "400";
             return result;
