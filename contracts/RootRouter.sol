@@ -97,7 +97,7 @@ contract RootRouter is Ownable {
         }
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
-        return ((addressNumberOwner == owner()) || ((customerNumber.owner == addressNumberOwner) && (customerNumber.subscriptionEndTime > block.timestamp)));
+        return ((addressNumberOwner == owner()) || ((customerNumber.owner == addressNumberOwner) && (block.timestamp < customerNumber.subscriptionEndTime)));
     }
 
     function isFree(uint256 number) public view returns(bool) {
@@ -163,11 +163,19 @@ contract RootRouter is Ownable {
     // ----- INTERNAL UTILS ----------------------------------------------------
 
     function getCustomerNumber(uint256 number) internal view returns(CustomerNumber storage) {
-        return pool[number];
+        CustomerNumber storage customerNumber = pool[number];
+        if (
+            (block.timestamp > customerNumber.subscriptionEndTime) &&
+            (block.timestamp.sub(customerNumber.subscriptionEndTime) < numberFreezeDuration)
+        ) {
+            customerNumber.holdingEndTime = customerNumber.subscriptionEndTime.add(numberFreezeDuration);
+        }
+
+        return customerNumber;
     }
 
     function isFree(CustomerNumber storage customerNumber) internal view returns(bool) {
-        return ((customerNumber.owner != address(0)) && (customerNumber.subscriptionEndTime > block.timestamp));
+        return ((customerNumber.owner != address(0)) && (block.timestamp > customerNumber.subscriptionEndTime));
     }
 
     function isBlocked(CustomerNumber storage customerNumber) internal view returns(bool) {
@@ -175,7 +183,7 @@ contract RootRouter is Ownable {
     }
 
     function isHolded(CustomerNumber storage customerNumber) internal view returns(bool) {
-        return (block.timestamp) > customerNumber.holdingEndTime;
+        return (block.timestamp > customerNumber.holdingEndTime);
     }
 
     function isAvailableForBuy(CustomerNumber storage customerNumber) internal view returns(bool) {
