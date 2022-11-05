@@ -341,7 +341,7 @@ contract RootRouter is Ownable {
         if (isNumberMode(customerNumber)) {
             string[] memory result = new string[](5);
             result[0] = "200";
-            result[1] = customerNumber.isBlocked ? "0" : "1";
+            result[1] = customerNumber.isBlocked ? "1" : "0";
             result[2] = "0";
             result[3] = Strings.toHexString(customerNumber.owner);
             result[4] = sipDomain;
@@ -350,7 +350,7 @@ contract RootRouter is Ownable {
         } else {
             string[] memory result = new string[](6);
             result[0] = "200";
-            result[1] = customerNumber.isBlocked ? "0" : "1";
+            result[1] = customerNumber.isBlocked ? "1" : "0";
             result[2] = Strings.toString(customerNumber.router.poolCodeLength);
             result[3] = Strings.toString(customerNumber.router.chainId);
             result[4] = customerNumber.router.adr;
