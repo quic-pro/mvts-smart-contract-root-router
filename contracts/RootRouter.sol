@@ -29,7 +29,6 @@ contract RootRouter is Ownable {
         bool isBlocked;
         address owner;
         uint256 subscriptionEndTime;
-        uint256 holdingEndTime;
         CustomerNumberMode mode;
         Router router;
     }
@@ -129,7 +128,7 @@ contract RootRouter is Ownable {
             isHolded(customerNumber),
             isAvailableForBuy(customerNumber),
             customerNumber.subscriptionEndTime,
-            customerNumber.holdingEndTime
+            customerNumber.subscriptionEndTime.add(numberFreezeDuration)
         );
     }
 
@@ -162,15 +161,7 @@ contract RootRouter is Ownable {
     // ----- INTERNAL UTILS ----------------------------------------------------
 
     function getCustomerNumber(uint256 number) internal view returns(CustomerNumber storage) {
-        CustomerNumber storage customerNumber = pool[number];
-        if (
-            (block.timestamp > customerNumber.subscriptionEndTime) &&
-            (block.timestamp.sub(customerNumber.subscriptionEndTime) < numberFreezeDuration)
-        ) {
-            customerNumber.holdingEndTime = customerNumber.subscriptionEndTime.add(numberFreezeDuration);
-        }
-
-        return customerNumber;
+        return pool[number];
     }
 
     function isFree(CustomerNumber storage customerNumber) internal view returns(bool) {
@@ -182,7 +173,10 @@ contract RootRouter is Ownable {
     }
 
     function isHolded(CustomerNumber storage customerNumber) internal view returns(bool) {
-        return (block.timestamp > customerNumber.holdingEndTime);
+        return (
+            (block.timestamp > customerNumber.subscriptionEndTime) &&
+            (block.timestamp.sub(customerNumber.subscriptionEndTime) < numberFreezeDuration)
+        );
     }
 
     function isAvailableForBuy(CustomerNumber storage customerNumber) internal view returns(bool) {
@@ -262,13 +256,6 @@ contract RootRouter is Ownable {
         customerNumber.subscriptionEndTime = block.timestamp.add(newExpirationTime);
     }
 
-    function setHoldingTime(uint256 number, uint256 holdingTime) external onlyOwner {
-        require(isValidNumber(number), "Invalid number!");
-
-        CustomerNumber storage customerNumber = getCustomerNumber(number);
-        customerNumber.holdingEndTime = block.timestamp.add(holdingTime);
-    }
-
 
 
     // ----- CUSTOMER NUMBER MANAGEMENT -----------------------------------------
@@ -293,7 +280,6 @@ contract RootRouter is Ownable {
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         customerNumber.subscriptionEndTime = customerNumber.subscriptionEndTime.add(subscriptionDuration);
-        customerNumber.holdingEndTime = block.timestamp;
 
         return ["200"];
     }
