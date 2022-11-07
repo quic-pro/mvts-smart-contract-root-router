@@ -173,7 +173,7 @@ contract RootRouter is Ownable {
     }
 
     function isFree(CustomerNumber storage customerNumber) internal view returns(bool) {
-        return ((customerNumber.owner != address(0)) && (block.timestamp > customerNumber.subscriptionEndTime));
+        return ((customerNumber.owner == address(0)) && (block.timestamp > customerNumber.subscriptionEndTime));
     }
 
     function isBlocked(CustomerNumber storage customerNumber) internal view returns(bool) {
