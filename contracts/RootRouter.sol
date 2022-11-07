@@ -133,7 +133,7 @@ contract RootRouter is Ownable {
     }
 
     function getBlockedNumber() public view returns(bool[POOL_SIZE] memory) {
-        bool[1000] memory blockedNumbers;
+        bool[POOL_SIZE] memory blockedNumbers;
         for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
             blockedNumbers[number] = isBlocked(number);
         }
@@ -141,7 +141,7 @@ contract RootRouter is Ownable {
     }
 
     function getFreeNumber() public view returns(bool[POOL_SIZE] memory) {
-        bool[1000] memory freeNumbers;
+        bool[POOL_SIZE] memory freeNumbers;
         for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
             freeNumbers[number] = isFree(number);
         }
@@ -149,11 +149,19 @@ contract RootRouter is Ownable {
     }
 
      function getHoldedNumber() public view returns(bool[POOL_SIZE] memory) {
-        bool[1000] memory holdedNumbers;
+        bool[POOL_SIZE] memory holdedNumbers;
         for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
             holdedNumbers[number] = isHolded(number);
         }
         return holdedNumbers;
+    }
+
+    function getAvailableForBuyNumbers() public view returns(bool[POOL_SIZE] memory) {
+        bool[POOL_SIZE] memory availableForBuyNumbers;
+        for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
+            availableForBuyNumbers[number] = isAvailableForBuy(number);
+        }
+        return availableForBuyNumbers;
     }
 
 
