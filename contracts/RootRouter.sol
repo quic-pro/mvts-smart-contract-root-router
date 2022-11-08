@@ -19,12 +19,14 @@ contract RootRouter is Ownable {
 
     enum CustomerNumberMode { Number, Pool }
 
+    // TODO: Add TTL
     struct Router {
         uint128 chainId;
         string adr;
         uint128 poolCodeLength;
     }
 
+    // TODO: rename owner to numberOwner
     struct CustomerNumber {
         bool isBlocked;
         address owner;
@@ -56,10 +58,9 @@ contract RootRouter is Ownable {
     uint256 public modeChangePrice = 5 ether;
     uint256 public subscriptionDuration = 315532800; // 10 years
     uint256 public numberFreezeDuration = 7776000; // 3 months
-    // TODO: Refactory TTL globaly
     uint256 public ttl = 864000; // 10 days
 
-    string public sipDomain = "sip.quic.pro";
+    string public sipDomain = "sip.quic.pro"; // TODO: Default; Add sip for customer number
 
 
 
