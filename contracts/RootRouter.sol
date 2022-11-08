@@ -14,7 +14,7 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- CUSTOM TYPES ------------------------------------------------------
+    // ----- CUSTOM TYPES ----------------------------------------------------------------------------------------------
 
     enum CustomerNumberMode { Number, Pool }
 
@@ -45,7 +45,7 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- SETTINGS ----------------------------------------------------------
+    // ----- SETTINGS --------------------------------------------------------------------------------------------------
 
     uint256 constant public POOL_CODE_LENGTH = 3;
     uint256 constant public POOL_SIZE = 1000;
@@ -63,13 +63,13 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- DATA --------------------------------------------------------------
+    // ----- DATA ------------------------------------------------------------------------------------------------------
 
     CustomerNumber[POOL_SIZE] public pool;
 
 
 
-    // ----- CONSTRUCTOR -------------------------------------------------------
+    // ----- CONSTRUCTOR -----------------------------------------------------------------------------------------------
 
     constructor() {
         for (uint256 number; number < MIN_NUMBER; number = number.add(1)) {
@@ -79,7 +79,7 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- PUBLIC UTILS ------------------------------------------------------
+    // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
     function isValidNumber(uint256 number) internal pure returns(bool) {
         return ((number >= MIN_NUMBER) && (number <= MAX_NUMBER));
@@ -166,7 +166,7 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- INTERNAL UTILS ----------------------------------------------------
+    // ----- INTERNAL UTILS --------------------------------------------------------------------------------------------
 
     function getCustomerNumber(uint256 number) internal view returns(CustomerNumber storage) {
         return pool[number];
@@ -215,7 +215,7 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- SMART CONTRACT MANAGEMENT ------------------------------------------
+    // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
 
     function withdraw() external onlyOwner {
         payable(owner()).transfer(address(this).balance);
@@ -271,7 +271,7 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- CUSTOMER NUMBER MANAGEMENT -----------------------------------------
+    // ----- CUSTOMER NUMBER MANAGEMENT --------------------------------------------------------------------------------
 
     // TODO: Refactory to ERC721 (like ENS Name)
     function buy(uint256 number) external payable {
@@ -356,7 +356,7 @@ contract RootRouter is Ownable {
 
 
 
-    // ----- ROUTING ------------------------------------------------------------
+    // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
     function getNextNode(uint256 number) public view returns(string[] memory) {
         if (!isValidNumber(number) || isFree(number)) {
