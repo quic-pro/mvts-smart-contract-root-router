@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 
-// TODO: Add possibility of hold
 contract RootRouter is Ownable {
     using SafeMath for uint256;
 
@@ -19,27 +18,27 @@ contract RootRouter is Ownable {
 
     enum CustomerNumberMode { Number, Pool }
 
-    // TODO: Add TTL
     struct Router {
-        uint128 chainId;
+        uint128 chainId; // ────────┐
+        uint128 poolCodeLength; // ─┘
+        uint256 ttl;
         string adr;
-        uint128 poolCodeLength;
     }
 
-    // TODO: rename owner to numberOwner
     struct CustomerNumber {
-        bool isBlocked;
-        address owner;
+        bool isBlocked; // ─┐
+        address owner; // ──┘
         uint256 subscriptionEndTime;
         CustomerNumberMode mode;
+        string sipDomain;
         Router router;
     }
 
     struct NumberStatus {
-        bool isBlocked;
-        bool isFree;
-        bool isHolded;
-        bool isAvailableForBuy;
+        bool isBlocked;// ──────────┐
+        bool isFree; //             │
+        bool isHolded; //           │
+        bool isAvailableForBuy; // ─┘
         uint256 subscriptionEndTime;
         uint256 holdingEndTime;
     }
@@ -58,9 +57,9 @@ contract RootRouter is Ownable {
     uint256 public modeChangePrice = 5 ether;
     uint256 public subscriptionDuration = 315532800; // 10 years
     uint256 public numberFreezeDuration = 7776000; // 3 months
-    uint256 public ttl = 864000; // 10 days
+    uint256 public defaultTtl = 864000; // 10 days
 
-    string public sipDomain = "sip.quic.pro"; // TODO: Default; Add sip for customer number
+    string public defaultSipDomain = "sip.quic.pro";
 
 
 
@@ -133,7 +132,7 @@ contract RootRouter is Ownable {
         );
     }
 
-    function getBlockedNumber() public view returns(bool[POOL_SIZE] memory) {
+    function getBlockedNumbers() public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory blockedNumbers;
         for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
             blockedNumbers[number] = isBlocked(number);
@@ -141,7 +140,7 @@ contract RootRouter is Ownable {
         return blockedNumbers;
     }
 
-    function getFreeNumber() public view returns(bool[POOL_SIZE] memory) {
+    function getAvailableNumbers() public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory freeNumbers;
         for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
             freeNumbers[number] = isFree(number);
@@ -149,7 +148,7 @@ contract RootRouter is Ownable {
         return freeNumbers;
     }
 
-     function getHoldedNumber() public view returns(bool[POOL_SIZE] memory) {
+    function getHoldedNumbers() public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory holdedNumbers;
         for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
             holdedNumbers[number] = isHolded(number);
@@ -183,8 +182,8 @@ contract RootRouter is Ownable {
 
     function isHolded(CustomerNumber storage customerNumber) internal view returns(bool) {
         return (
-            (block.timestamp > customerNumber.subscriptionEndTime) &&
-            (block.timestamp.sub(customerNumber.subscriptionEndTime) < numberFreezeDuration)
+        (block.timestamp > customerNumber.subscriptionEndTime) &&
+        (block.timestamp.sub(customerNumber.subscriptionEndTime) < numberFreezeDuration)
         );
     }
 
@@ -202,11 +201,16 @@ contract RootRouter is Ownable {
 
     function clearCustomerNumber(uint256 number) internal {
         CustomerNumber storage customerNumber = getCustomerNumber(number);
+        customerNumber.isBlocked = false;
         customerNumber.owner = address(0);
         customerNumber.subscriptionEndTime = block.timestamp;
-        customerNumber.isBlocked = false;
         customerNumber.mode = CustomerNumberMode.Number;
-        customerNumber.router = Router(0, Strings.toHexString(address(0)), 0);
+        customerNumber.sipDomain = "";
+        customerNumber.router = Router(0, 0, 0, "");
+    }
+
+    function isEqualStrings(string memory a, string memory b) internal pure returns(bool) {
+        return (keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b)));
     }
 
 
@@ -237,12 +241,12 @@ contract RootRouter is Ownable {
         subscriptionDuration = newSubscriptionDuration;
     }
 
-    function setTtl(uint256 newTtl) external onlyOwner {
-        ttl = newTtl;
+    function setDefaultTtl(uint256 newDefaultTtl) external onlyOwner {
+        defaultTtl = newDefaultTtl;
     }
 
-    function setSipDomain(string memory newSipDomain) external onlyOwner {
-        sipDomain = newSipDomain;
+    function setDefaultSipDomain(string memory newDefaultSipDomain) external onlyOwner {
+        defaultSipDomain = newDefaultSipDomain;
     }
 
     function takeAwayOwnership(uint256 number) external onlyOwner {
@@ -303,23 +307,38 @@ contract RootRouter is Ownable {
             customerNumber.mode = CustomerNumberMode.Pool;
         } else {
             customerNumber.mode = CustomerNumberMode.Number;
-            customerNumber.router = Router(0, Strings.toHexString(address(0)), 0);
+            customerNumber.router = Router(0, 0, 0, "");
         }
 
         return ["200"];
     }
 
-    function setCustomerNumberRouter(uint256 number, uint128 chainId, string memory adr, uint128 poolCodeLength) external returns(string[1] memory) {
+    function setCustomerNumberSipDomain(uint256 number, string memory newSipDomain) external returns(string[1] memory) {
         if (!isAddressNumberOwner(number, msg.sender)) {
             return ["400"];
         }
 
         CustomerNumber storage customerNumber = getCustomerNumber(number);
-        require(isPoolMode(customerNumber), "The CustomerNumber is not a pool!");
+        if (!isNumberMode(customerNumber)) {
+            return ["400"];
+        }
 
-        customerNumber.router.chainId = chainId;
-        customerNumber.router.adr = adr;
-        customerNumber.router.poolCodeLength = poolCodeLength;
+        customerNumber.sipDomain = newSipDomain;
+
+        return ["200"];
+    }
+
+    function setCustomerNumberRouter(uint256 number, uint128 chainId, string memory adr, uint128 poolCodeLength, uint256 ttl) external returns(string[1] memory) {
+        if (!isAddressNumberOwner(number, msg.sender)) {
+            return ["400"];
+        }
+
+        CustomerNumber storage customerNumber = getCustomerNumber(number);
+        if (!isPoolMode(customerNumber)) {
+            return ["400"];
+        }
+
+        customerNumber.router = Router(chainId, poolCodeLength, ttl, adr);
 
         return ["200"];
     }
@@ -350,20 +369,20 @@ contract RootRouter is Ownable {
         if (isNumberMode(customerNumber)) {
             string[] memory result = new string[](5);
             result[0] = "200";
-            result[1] = customerNumber.isBlocked ? "1" : "0";
+            result[1] = (customerNumber.isBlocked ? "1" : "0");
             result[2] = "0";
             result[3] = Strings.toHexString(customerNumber.owner);
-            result[4] = sipDomain;
+            result[4] = (isEqualStrings(customerNumber.sipDomain, "") ? defaultSipDomain : customerNumber.sipDomain);
 
             return result;
         } else {
             string[] memory result = new string[](6);
             result[0] = "200";
-            result[1] = customerNumber.isBlocked ? "1" : "0";
+            result[1] = (customerNumber.isBlocked ? "1" : "0");
             result[2] = Strings.toString(customerNumber.router.poolCodeLength);
             result[3] = Strings.toString(customerNumber.router.chainId);
             result[4] = customerNumber.router.adr;
-            result[5] = Strings.toString(ttl);
+            result[5] = Strings.toString(isEqualStrings(customerNumber.sipDomain, "") ? defaultTtl : customerNumber.router.ttl);
 
             return result;
         }
