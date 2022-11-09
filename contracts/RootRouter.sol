@@ -286,11 +286,12 @@ contract RootRouter is Ownable {
     function buy(uint256 number) external payable {
         require(isValidNumber(number), "Invalid number!");
         require(checkPayment(buyPrice, msg.value), "Insufficient funds!");
-        require(isAvailableForBuy(number), "The number is not available for buy!");
+
+        CustomerNumber storage customerNumber = pool[number];
+        require(isAvailableForBuy(customerNumber), "The number is not available for buy!");
 
         clearCustomerNumber(number);
 
-        CustomerNumber storage customerNumber = pool[number];
         customerNumber.owner = msg.sender;
         customerNumber.subscriptionEndTime = block.timestamp.add(subscriptionDuration);
     }
@@ -298,9 +299,10 @@ contract RootRouter is Ownable {
     function renewSubscription(uint256 number) external payable returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!checkPayment(subscriptionPrice, msg.value)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+
         customerNumber.subscriptionEndTime = customerNumber.subscriptionEndTime.add(subscriptionDuration);
 
         return ["200"];
@@ -308,10 +310,11 @@ contract RootRouter is Ownable {
 
     function transferOwnershipOfCustomerNumber(uint256 number, address newOwner) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
-        if (isHolded(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+        if (isHolded(customerNumber)) return ["400"];
+
         customerNumber.owner = newOwner;
 
         return ["200"];
@@ -319,7 +322,9 @@ contract RootRouter is Ownable {
 
     function renounceOwnershipOfCustomerNumber(uint256 number) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+
+        CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
 
         clearCustomerNumber(number);
 
@@ -329,10 +334,11 @@ contract RootRouter is Ownable {
     function changeCustomerNumberMode(uint256 number) external payable returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!checkPayment(modeChangePrice, msg.value)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
-        if (isHolded(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+        if (isHolded(customerNumber)) return ["400"];
+
         if (isNumberMode(customerNumber)) {
             customerNumber.mode = CustomerNumberMode.Pool;
             delete customerNumber.sipDomain;
@@ -346,11 +352,12 @@ contract RootRouter is Ownable {
 
     function setCustomerNumberSipDomain(uint256 number, string memory newSipDomain) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
-        if (isHolded(pool[number])) return ["400"];
-        if (!isNumberMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+        if (isHolded(customerNumber)) return ["400"];
+        if (!isNumberMode(customerNumber)) return ["400"];
+
         customerNumber.sipDomain = newSipDomain;
 
         return ["200"];
@@ -358,11 +365,12 @@ contract RootRouter is Ownable {
 
     function clearCustomerNumberSipDomain(uint256 number) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
-        if (isHolded(pool[number])) return ["400"];
-        if (!isNumberMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+        if (isHolded(customerNumber)) return ["400"];
+        if (!isNumberMode(customerNumber)) return ["400"];
+
         delete customerNumber.sipDomain;
 
         return ["200"];
@@ -370,11 +378,12 @@ contract RootRouter is Ownable {
 
     function setCustomerNumberRouter(uint256 number, Router memory newRouter) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
-        if (isHolded(pool[number])) return ["400"];
-        if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+        if (isHolded(customerNumber)) return ["400"];
+        if (!isPoolMode(customerNumber)) return ["400"];
+
         customerNumber.router = newRouter;
 
         return ["200"];
@@ -382,11 +391,12 @@ contract RootRouter is Ownable {
 
     function clearCustomerNumberRouter(uint256 number) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
-        if (isHolded(pool[number])) return ["400"];
-        if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+        if (isHolded(customerNumber)) return ["400"];
+        if (!isPoolMode(customerNumber)) return ["400"];
+
         delete customerNumber.router;
 
         return ["200"];
@@ -394,11 +404,12 @@ contract RootRouter is Ownable {
 
     function setCustomerNumberRouterTtl(uint256 number, uint256 newTtl) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
-        if (isHolded(pool[number])) return ["400"];
-        if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+        if (isHolded(customerNumber)) return ["400"];
+        if (!isPoolMode(customerNumber)) return ["400"];
+
         customerNumber.router.ttl = newTtl;
 
         return ["200"];
@@ -406,11 +417,12 @@ contract RootRouter is Ownable {
 
     function clearCustomerNumberRouterTtl(uint256 number) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
-        if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
-        if (isHolded(pool[number])) return ["400"];
-        if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
+        if (isHolded(customerNumber)) return ["400"];
+        if (!isPoolMode(customerNumber)) return ["400"];
+
         delete customerNumber.router.ttl;
 
         return ["200"];
@@ -422,11 +434,12 @@ contract RootRouter is Ownable {
 
     function getNextNode(uint256 number) public view returns(string[5] memory) {
         if (!isValidNumber(number)) return ["400", "", "", "", ""];
-        if (isBlocked(pool[number])) return ["400", "", "", "", ""];
-        if (isAvailable(pool[number])) return ["400", "", "", "", ""];
-        if (isHolded(pool[number])) return ["400", "", "", "", ""];
 
         CustomerNumber storage customerNumber = pool[number];
+        if (isBlocked(customerNumber)) return ["400", "", "", "", ""];
+        if (isAvailable(customerNumber)) return ["400", "", "", "", ""];
+        if (isHolded(customerNumber)) return ["400", "", "", "", ""];
+
         if (isNumberMode(customerNumber)) {
             return [
                 "200",
