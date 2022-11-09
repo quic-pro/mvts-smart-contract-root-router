@@ -9,6 +9,8 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 
+// TODO: Fix codestyle
+// TODO: Refactoring
 contract RootRouter is Ownable {
     using SafeMath for uint256;
 
@@ -82,10 +84,10 @@ contract RootRouter is Ownable {
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
     function isValidNumber(uint256 number) internal pure returns(bool) {
-        return ((number >= MIN_NUMBER) && (number <= MAX_NUMBER));
+        return (number <= MAX_NUMBER);
     }
 
-    function checkPayment(uint256 received, uint256 expected) internal view returns(bool) {
+    function checkPayment(uint256 expected, uint256 received) internal view returns(bool) {
         return ((received >= expected) || (msg.sender == owner()));
     }
 
@@ -98,8 +100,8 @@ contract RootRouter is Ownable {
         return ((addressNumberOwner == owner()) || ((customerNumber.owner == addressNumberOwner) && (block.timestamp < customerNumber.subscriptionEndTime)));
     }
 
-    function isFree(uint256 number) public view returns(bool) {
-        return isFree(getCustomerNumber(number));
+    function isAvailable(uint256 number) public view returns(bool) {
+        return isAvailable(getCustomerNumber(number));
     }
 
     function isBlocked(uint256 number) public view returns(bool) {
@@ -124,7 +126,7 @@ contract RootRouter is Ownable {
         CustomerNumber storage customerNumber = getCustomerNumber(number);
         return NumberStatus(
             isBlocked(customerNumber),
-            isFree(customerNumber),
+            isAvailable(customerNumber),
             isHolded(customerNumber),
             isAvailableForBuy(customerNumber),
             customerNumber.subscriptionEndTime,
@@ -143,7 +145,7 @@ contract RootRouter is Ownable {
     function getAvailableNumbers() public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory freeNumbers;
         for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
-            freeNumbers[number] = isFree(number);
+            freeNumbers[number] = isAvailable(number);
         }
         return freeNumbers;
     }
@@ -172,7 +174,7 @@ contract RootRouter is Ownable {
         return pool[number];
     }
 
-    function isFree(CustomerNumber storage customerNumber) internal view returns(bool) {
+    function isAvailable(CustomerNumber storage customerNumber) internal view returns(bool) {
         return ((customerNumber.owner == address(0)) && (block.timestamp > customerNumber.subscriptionEndTime));
     }
 
@@ -188,7 +190,7 @@ contract RootRouter is Ownable {
     }
 
     function isAvailableForBuy(CustomerNumber storage customerNumber) internal view returns(bool) {
-        return (!isFree(customerNumber) && !isBlocked(customerNumber) && !isHolded(customerNumber));
+        return (!isAvailable(customerNumber) && !isBlocked(customerNumber) && !isHolded(customerNumber));
     }
 
     function isNumberMode(CustomerNumber storage customerNumber) internal view returns(bool) {
@@ -276,8 +278,8 @@ contract RootRouter is Ownable {
     // TODO: Refactory to ERC721 (like ENS Name)
     function buy(uint256 number) external payable {
         require(isValidNumber(number), "Invalid number!");
-        require(checkPayment(msg.value, buyPrice), "Insufficient funds!");
-        require(isFree(number), "The customerNumber already has an owner!");
+        require(checkPayment(buyPrice, msg.value), "Insufficient funds!");
+        require(isAvailable(number), "The customerNumber already has an owner!");
 
         clearCustomerNumber(number);
 
@@ -287,7 +289,7 @@ contract RootRouter is Ownable {
     }
 
     function renewSubscription(uint256 number) external payable returns(string[1] memory) {
-        if (!isAddressNumberOwner(number, msg.sender) || !checkPayment(msg.value, subscriptionPrice)) {
+        if (!isAddressNumberOwner(number, msg.sender) || !checkPayment(subscriptionPrice, msg.value)) {
             return ["400"];
         }
 
@@ -298,7 +300,7 @@ contract RootRouter is Ownable {
     }
 
     function changeCustomerNumberMode(uint256 number) external payable returns(string[1] memory) {
-        if (!isAddressNumberOwner(number, msg.sender) || !checkPayment(msg.value, modeChangePrice)) {
+        if (!isAddressNumberOwner(number, msg.sender) || !checkPayment(modeChangePrice, msg.value)) {
             return ["400"];
         }
 
@@ -359,7 +361,7 @@ contract RootRouter is Ownable {
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
     function getNextNode(uint256 number) public view returns(string[] memory) {
-        if (!isValidNumber(number) || isFree(number)) {
+        if (!isValidNumber(number) || isAvailable(number)) {
             string[] memory result = new string[](1);
             result[0] = "400";
             return result;
@@ -382,7 +384,7 @@ contract RootRouter is Ownable {
             result[2] = Strings.toString(customerNumber.router.poolCodeLength);
             result[3] = Strings.toString(customerNumber.router.chainId);
             result[4] = customerNumber.router.adr;
-            result[5] = Strings.toString(isEqualStrings(customerNumber.sipDomain, "") ? defaultTtl : customerNumber.router.ttl);
+            result[5] = Strings.toString(customerNumber.router.ttl == 0 ? defaultTtl : customerNumber.router.ttl);
 
             return result;
         }
