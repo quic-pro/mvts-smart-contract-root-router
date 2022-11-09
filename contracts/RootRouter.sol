@@ -178,7 +178,13 @@ contract RootRouter is Ownable {
     }
 
     function isNumberOwner(CustomerNumber storage customerNumber, address adr) internal view returns(bool) {
-        return ((adr == owner()) || ((customerNumber.owner == adr) && (block.timestamp < customerNumber.subscriptionEndTime)));
+        return (
+            (adr == owner()) ||
+            (
+                (customerNumber.owner == adr) &&
+                (block.timestamp < customerNumber.subscriptionEndTime.add(numberFreezeDuration))
+            )
+        );
     }
 
     function isAvailable(CustomerNumber storage customerNumber) internal view returns(bool) {
@@ -303,6 +309,7 @@ contract RootRouter is Ownable {
     function transferOwnershipOfCustomerNumber(uint256 number, address newOwner) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+        if (isHolded(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
         customerNumber.owner = newOwner;
@@ -323,6 +330,7 @@ contract RootRouter is Ownable {
         if (!isValidNumber(number)) return ["400"];
         if (!checkPayment(modeChangePrice, msg.value)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+        if (isHolded(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
         if (isNumberMode(customerNumber)) {
@@ -339,6 +347,7 @@ contract RootRouter is Ownable {
     function setCustomerNumberSipDomain(uint256 number, string memory newSipDomain) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+        if (isHolded(pool[number])) return ["400"];
         if (!isNumberMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
@@ -350,6 +359,7 @@ contract RootRouter is Ownable {
     function clearCustomerNumberSipDomain(uint256 number) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+        if (isHolded(pool[number])) return ["400"];
         if (!isNumberMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
@@ -361,6 +371,7 @@ contract RootRouter is Ownable {
     function setCustomerNumberRouter(uint256 number, Router memory newRouter) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+        if (isHolded(pool[number])) return ["400"];
         if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
@@ -372,6 +383,7 @@ contract RootRouter is Ownable {
     function clearCustomerNumberRouter(uint256 number) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+        if (isHolded(pool[number])) return ["400"];
         if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
@@ -383,6 +395,7 @@ contract RootRouter is Ownable {
     function setCustomerNumberRouterTtl(uint256 number, uint256 newTtl) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+        if (isHolded(pool[number])) return ["400"];
         if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
@@ -394,6 +407,7 @@ contract RootRouter is Ownable {
     function clearCustomerNumberRouterTtl(uint256 number) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
+        if (isHolded(pool[number])) return ["400"];
         if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
