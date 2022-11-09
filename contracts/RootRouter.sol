@@ -2,12 +2,13 @@
 pragma solidity 0.8.7;
 
 
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 
-// TODO: Fix codestyle
+
 contract RootRouter is Ownable {
     using SafeMath for uint256;
 
@@ -82,9 +83,9 @@ contract RootRouter is Ownable {
         return (number < POOL_SIZE);
     }
 
-    function isNumberOwner(uint256 number, address allegedOwner) public view returns(bool) {
+    function isNumberOwner(uint256 number, address adr) public view returns(bool) {
         require(isValidNumber(number), "Invalid number!");
-        return isNumberOwner(pool[number], allegedOwner);
+        return isNumberOwner(pool[number], adr);
     }
 
     function isAvailable(uint256 number) public view returns(bool) {
@@ -176,8 +177,8 @@ contract RootRouter is Ownable {
         return ((received >= expected) || (msg.sender == owner()));
     }
 
-    function isNumberOwner(CustomerNumber storage customerNumber, address allegedOwner) internal view returns(bool) {
-        return ((allegedOwner == owner()) || ((customerNumber.owner == allegedOwner) && (block.timestamp < customerNumber.subscriptionEndTime)));
+    function isNumberOwner(CustomerNumber storage customerNumber, address adr) internal view returns(bool) {
+        return ((adr == owner()) || ((customerNumber.owner == adr) && (block.timestamp < customerNumber.subscriptionEndTime)));
     }
 
     function isAvailable(CustomerNumber storage customerNumber) internal view returns(bool) {
@@ -190,8 +191,8 @@ contract RootRouter is Ownable {
 
     function isHolded(CustomerNumber storage customerNumber) internal view returns(bool) {
         return (
-            (block.timestamp > customerNumber.subscriptionEndTime) &&
-            (block.timestamp < customerNumber.subscriptionEndTime.add(numberFreezeDuration))
+        (block.timestamp > customerNumber.subscriptionEndTime) &&
+        (block.timestamp < customerNumber.subscriptionEndTime.add(numberFreezeDuration))
         );
     }
 
@@ -289,8 +290,8 @@ contract RootRouter is Ownable {
     }
 
     function renewSubscription(uint256 number) external payable returns(string[1] memory) {
-        if (!checkPayment(subscriptionPrice, msg.value)) return ["400"];
         if (!isValidNumber(number)) return ["400"];
+        if (!checkPayment(subscriptionPrice, msg.value)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
@@ -319,8 +320,8 @@ contract RootRouter is Ownable {
     }
 
     function changeCustomerNumberMode(uint256 number) external payable returns(string[1] memory) {
-        if (!checkPayment(modeChangePrice, msg.value)) return ["400"];
         if (!isValidNumber(number)) return ["400"];
+        if (!checkPayment(modeChangePrice, msg.value)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
@@ -357,13 +358,13 @@ contract RootRouter is Ownable {
         return ["200"];
     }
 
-    function setCustomerNumberRouter(uint256 number, uint128 chainId, string memory adr, uint128 poolCodeLength, uint256 ttl) external returns(string[1] memory) {
+    function setCustomerNumberRouter(uint256 number, Router memory newRouter) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
         if (!isNumberOwner(pool[number], msg.sender)) return ["400"];
         if (!isPoolMode(pool[number])) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
-        customerNumber.router = Router(chainId, poolCodeLength, ttl, adr);
+        customerNumber.router = newRouter;
 
         return ["200"];
     }
