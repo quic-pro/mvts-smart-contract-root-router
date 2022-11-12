@@ -79,6 +79,10 @@ contract RootRouter is Ownable {
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
+    function getTimestamp() public view returns(uint256) {
+        return block.timestamp;
+    }
+
     function isValidNumber(uint256 number) public pure returns(bool) {
         return (number < POOL_SIZE);
     }
@@ -188,7 +192,7 @@ contract RootRouter is Ownable {
     }
 
     function isAvailable(CustomerNumber storage customerNumber) internal view returns(bool) {
-        return ((customerNumber.owner == address(0)) && (block.timestamp > customerNumber.subscriptionEndTime));
+        return ((customerNumber.owner == address(0)) || (block.timestamp > customerNumber.subscriptionEndTime));
     }
 
     function isBlocked(CustomerNumber storage customerNumber) internal view returns(bool) {
@@ -197,8 +201,9 @@ contract RootRouter is Ownable {
 
     function isHolded(CustomerNumber storage customerNumber) internal view returns(bool) {
         return (
-        (block.timestamp > customerNumber.subscriptionEndTime) &&
-        (block.timestamp < customerNumber.subscriptionEndTime.add(numberFreezeDuration))
+            (customerNumber.owner != address(0)) &&
+            (block.timestamp > customerNumber.subscriptionEndTime) &&
+            (block.timestamp < customerNumber.subscriptionEndTime.add(numberFreezeDuration))
         );
     }
 

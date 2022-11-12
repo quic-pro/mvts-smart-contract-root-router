@@ -18,7 +18,7 @@ module.exports = {
     networks: {
         goerli: {
             provider: () => new HDWalletProvider(env.PRIVATE_KEY, `https://goerli.infura.io/v3/${env.INFURA_KEY_GOERLI}`),
-            network_id: 4
+            network_id: 5
         },
         eth: {
             provider: () => new HDWalletProvider(env.PRIVATE_KEY, `https://mainnet.infura.io/v3/${env.INFURA_KEY_ETH}`),
