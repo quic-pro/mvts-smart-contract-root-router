@@ -1,108 +1,72 @@
 # mvts-smart-contract-root-router
 
-## Description
-
 Smart contract for decentralized phone numbering plan.
 
-## Install Dependencies
+***
 
-```bash
-yarn install
-```
+### Install Dependencies
 
-## Template .env
+`yarn install`
+
+***
+
+### Template .env
 
 ```text
 PRIVATE_KEY=<string, required>
-INFURA_KEY_GOERLI=<string, optional>
-INFURA_KEY_ETH=<string, optional>
+INFURA_ETH_SEPOLIA_API_KEY=<string, optional>
+INFURA_ETH_MAINNET_API_KEY=<string, optional>
+ALCHEMY_POLYGON_MUMBAI_API_KEY=<string, optional>
+ALCHEMY_POLYGON_MAINNET_API_KEY=<string, optional>
+GETBLOCK_BSC_TESTNET_API_KEY=<string, optional>
+GETBLOCK_BSC_MAINNET_API_KEY=<string, optional>
 ETHERSCAN_API_KEY=<string, optional>
-BSCSCAN_API_KEY=<string, optional>
 POLYGONSCAN_API_KEY=<string, optional>
+BSCSCAN_API_KEY=<string, optional>
 ```
 
-## Test contracts
+***
 
-```bash
-yarn test
-```
+### Test contracts
 
-## Deploy contracts in testnet
+`yarn test`
 
-Goerli - Ethereum testnet
+***
 
-```bash
-yarn deploy:goerli
-```
+### Deploy contract in testnet
 
-BSC testnet
+Ethereum (Sepolia): `yarn deploy:eth-sepolia`
 
-```bash
-yarn deploy:testnet
-```
+Polygon (Mumbai): `yarn deploy:polygon-mumbai`
 
-Mumbai - Polygon testnet
+Binance Smart Chain: `yarn deploy:bsc-testnet`
 
-```bash
-yarn deploy:mumbai
-```
+***
 
-## Deploy contracts in mainnet
+### Verify contract in testnet
 
-Ethereum mainnet
+Ethereum (Sepolia): `yarn verify:eth-sepolia`
 
-```bash
-yarn deploy:eth
-```
+Polygon (Mumbai): `yarn verify:polygon-mumbai`
 
-BSC mainnet
+Binance Smart Chain: `yarn verify:bsc-testnet`
 
-```bash
-yarn deploy:bsc
-```
+***
 
-Polygon mainnet
+### Deploy contract in mainnet
 
-```bash
-yarn deploy:polygon
-```
+Ethereum: `yarn deploy:eth-mainnet`
 
-## Verify contracts in testnet
+Polygon: `yarn deploy:polygon-mainnet`
 
-goerli.etherscan.io
+Binance Smart Chain: `yarn deploy:bsc-mainnet`
 
-```bash
-yarn verify:goerli
-```
+***
 
-testnet.bscscan.com
+### Verify contract in mainnet
 
-```bash
-yarn verify:testnet
-```
+Ethereum: `yarn verify:eth-mainnet`
 
-mumbai.polygonscan.com
+Polygon: `yarn verify:polygon-mainnet`
 
-```bash
-yarn verify:mumbai
-```
-
-## Verify contracts in mainnet
-
-etherscan.io
-
-```bash
-yarn verify:eth
-```
-
-bscscan.com
-
-```bash
-yarn verify:bsc
-```
-
-polygonscan.com
-
-```bash
-yarn verify:polygon
-```
+Binance Smart Chain: `yarn verify:bsc-mainnet`
