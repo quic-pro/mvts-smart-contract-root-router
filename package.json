@@ -14,12 +14,12 @@
     "deploy:polygon-mainnet": "truffle deploy --network polygon-mainnet --reset",
     "deploy:bsc-testnet": "truffle deploy --network bsc-testnet --reset",
     "deploy:bsc-mainnet": "truffle deploy --network bsc-mainnet --reset",
-    "verify:eth-sepolia": "npx truffle run verify Curator --network eth-sepolia",
-    "verify:eth-mainnet": "npx truffle run verify Curator --network eth-mainnet",
-    "verify:polygon-mumbai": "npx truffle run verify Curator --network polygon-mumbai",
-    "verify:polygon-mainnet": "npx truffle run verify Curator --network polygon-mainnet",
-    "verify:bsc-testnet": "npx truffle run verify Curator --network bsc-testnet",
-    "verify:bsc-mainnet": "npx truffle run verify Curator --network bsc-mainnet"
+    "verify:eth-sepolia": "npx truffle run verify RootRouter --network eth-sepolia",
+    "verify:eth-mainnet": "npx truffle run verify RootRouter --network eth-mainnet",
+    "verify:polygon-mumbai": "npx truffle run verify RootRouter --network polygon-mumbai",
+    "verify:polygon-mainnet": "npx truffle run verify RootRouter --network polygon-mainnet",
+    "verify:bsc-testnet": "npx truffle run verify RootRouter --network bsc-testnet",
+    "verify:bsc-mainnet": "npx truffle run verify RootRouter --network bsc-mainnet"
   },
   "author": {
     "name": "Sergey Bondarenko QUIC-PRO Inc. developer",

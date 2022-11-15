@@ -19,19 +19,20 @@ contract RootRouter is Ownable {
     enum CustomerNumberMode { Number, Pool }
 
     struct Router {
-        uint128 chainId; // ────────┐
-        uint128 poolCodeLength; // ─┘
-        uint256 ttl;
+        string chainId;
         string adr;
+        string poolCodeLength;
     }
 
     struct CustomerNumber {
-        bool isBlocked; // ─┐
-        address owner; // ──┘
+        bool isBlocked; // ───┐
+        bool hasSipDomain; // │ Used if number mode
+        bool hasRouter; //    │ Used if pool mode
+        address owner; // ────┘
         uint256 subscriptionEndTime;
         CustomerNumberMode mode;
-        string sipDomain;
-        Router router;
+        string sipDomain; // Used if number mode
+        Router router; // Used if pool mode
     }
 
     struct NumberStatus {
@@ -55,7 +56,7 @@ contract RootRouter is Ownable {
     uint256 public modeChangePrice = 5 ether;
     uint256 public subscriptionDuration = 315532800; // 10 years
     uint256 public numberFreezeDuration = 7776000; // 3 months
-    uint256 public defaultTtl = 864000; // 10 days
+    string public ttl = "864000"; // 10 days
 
     string public defaultSipDomain = "sip.quic.pro";
 
@@ -114,17 +115,29 @@ contract RootRouter is Ownable {
 
     function isNumberMode(uint256 number) internal view returns(bool) {
         require(isValidNumber(number), "Invalid number!");
-        return isNumberMode(pool[number]);
+
+        CustomerNumber storage customerNumber = pool[number];
+        require(!isAvailable(customerNumber), "Number not in use!");
+
+        return isNumberMode(customerNumber);
     }
 
     function isPoolMode(uint256 number) internal view returns(bool) {
         require(isValidNumber(number), "Invalid number!");
-        return isPoolMode(pool[number]);
+
+        CustomerNumber storage customerNumber = pool[number];
+        require(!isAvailable(customerNumber), "Number not in use!");
+
+        return isPoolMode(customerNumber);
     }
 
     function getMode(uint256 number) public view returns(CustomerNumberMode) {
         require(isValidNumber(number), "Invalid number!");
-        return pool[number].mode;
+
+        CustomerNumber storage customerNumber = pool[number];
+        require(!isAvailable(customerNumber), "Number not in use!");
+
+        return customerNumber.mode;
     }
 
     function getNumberStatus(uint256 number) public view returns(NumberStatus memory) {
@@ -173,6 +186,14 @@ contract RootRouter is Ownable {
         return availableForBuyNumbers;
     }
 
+    function getNumberPools() public view returns(bool[POOL_SIZE] memory) {
+        bool[POOL_SIZE] memory numberPools;
+        for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
+            numberPools[number] = (!isAvailableForBuy(number) && isPoolMode(pool[number]));
+        }
+        return numberPools;
+    }
+
 
 
     // ----- INTERNAL UTILS --------------------------------------------------------------------------------------------
@@ -219,12 +240,24 @@ contract RootRouter is Ownable {
         return (customerNumber.mode == CustomerNumberMode.Pool);
     }
 
-    function isEmptyString(string memory str) internal pure returns(bool) {
-        return (bytes(str).length == 0);
+    function setCustomerNumberSipDomain(CustomerNumber storage customerNumber, string memory newSipDomain) internal {
+        customerNumber.sipDomain = newSipDomain;
+        customerNumber.hasSipDomain = true;
     }
 
-    function clearCustomerNumber(uint256 number) internal {
-        delete pool[number];
+    function clearCustomerNumberSipDomain(CustomerNumber storage customerNumber) internal {
+        delete customerNumber.sipDomain;
+        customerNumber.hasSipDomain = false;
+    }
+
+    function setCustomerNumberRouter(CustomerNumber storage customerNumber, Router memory newRouter) internal {
+        customerNumber.router = newRouter;
+        customerNumber.hasRouter = true;
+    }
+
+    function clearCustomerNumberRouter(CustomerNumber storage customerNumber) internal {
+        delete customerNumber.router;
+        customerNumber.hasRouter = false;
     }
 
 
@@ -255,8 +288,8 @@ contract RootRouter is Ownable {
         numberFreezeDuration = newNumberFreezeDuration;
     }
 
-    function setDefaultTtl(uint256 newDefaultTtl) external onlyOwner {
-        defaultTtl = newDefaultTtl;
+    function setTtl(uint256 newTtl) external onlyOwner {
+        ttl = Strings.toString(newTtl);
     }
 
     function setDefaultSipDomain(string memory newDefaultSipDomain) external onlyOwner {
@@ -266,7 +299,9 @@ contract RootRouter is Ownable {
     function takeAwayOwnership(uint256 number) external onlyOwner {
         require(isValidNumber(number), "Invalid number!");
 
-        clearCustomerNumber(number);
+        CustomerNumber storage customerNumber = pool[number];
+        customerNumber.owner = address(0);
+        customerNumber.subscriptionEndTime = 0;
     }
 
     function setBlockedStatus(uint256 number, bool newBlockedStatus) external onlyOwner {
@@ -295,7 +330,7 @@ contract RootRouter is Ownable {
         CustomerNumber storage customerNumber = pool[number];
         require(isAvailableForBuy(customerNumber), "The number is not available for buy!");
 
-        clearCustomerNumber(number);
+        delete pool[number];
 
         customerNumber.owner = msg.sender;
         customerNumber.subscriptionEndTime = block.timestamp.add(subscriptionDuration);
@@ -318,7 +353,6 @@ contract RootRouter is Ownable {
 
         CustomerNumber storage customerNumber = pool[number];
         if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
-        if (isHolded(customerNumber)) return ["400"];
 
         customerNumber.owner = newOwner;
 
@@ -331,7 +365,8 @@ contract RootRouter is Ownable {
         CustomerNumber storage customerNumber = pool[number];
         if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
 
-        clearCustomerNumber(number);
+        customerNumber.owner = address(0);
+        customerNumber.subscriptionEndTime = 0;
 
         return ["200"];
     }
@@ -346,10 +381,10 @@ contract RootRouter is Ownable {
 
         if (isNumberMode(customerNumber)) {
             customerNumber.mode = CustomerNumberMode.Pool;
-            delete customerNumber.sipDomain;
+            clearCustomerNumberSipDomain(customerNumber);
         } else {
             customerNumber.mode = CustomerNumberMode.Number;
-            delete customerNumber.router;
+            clearCustomerNumberRouter(customerNumber);
         }
 
         return ["200"];
@@ -363,7 +398,7 @@ contract RootRouter is Ownable {
         if (isHolded(customerNumber)) return ["400"];
         if (!isNumberMode(customerNumber)) return ["400"];
 
-        customerNumber.sipDomain = newSipDomain;
+        setCustomerNumberSipDomain(customerNumber, newSipDomain);
 
         return ["200"];
     }
@@ -376,7 +411,7 @@ contract RootRouter is Ownable {
         if (isHolded(customerNumber)) return ["400"];
         if (!isNumberMode(customerNumber)) return ["400"];
 
-        delete customerNumber.sipDomain;
+        clearCustomerNumberSipDomain(customerNumber);
 
         return ["200"];
     }
@@ -389,7 +424,7 @@ contract RootRouter is Ownable {
         if (isHolded(customerNumber)) return ["400"];
         if (!isPoolMode(customerNumber)) return ["400"];
 
-        customerNumber.router = newRouter;
+        setCustomerNumberRouter(customerNumber, newRouter);
 
         return ["200"];
     }
@@ -402,33 +437,7 @@ contract RootRouter is Ownable {
         if (isHolded(customerNumber)) return ["400"];
         if (!isPoolMode(customerNumber)) return ["400"];
 
-        delete customerNumber.router;
-
-        return ["200"];
-    }
-
-    function setCustomerNumberRouterTtl(uint256 number, uint256 newTtl) external returns(string[1] memory) {
-        if (!isValidNumber(number)) return ["400"];
-
-        CustomerNumber storage customerNumber = pool[number];
-        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
-        if (isHolded(customerNumber)) return ["400"];
-        if (!isPoolMode(customerNumber)) return ["400"];
-
-        customerNumber.router.ttl = newTtl;
-
-        return ["200"];
-    }
-
-    function clearCustomerNumberRouterTtl(uint256 number) external returns(string[1] memory) {
-        if (!isValidNumber(number)) return ["400"];
-
-        CustomerNumber storage customerNumber = pool[number];
-        if (!isNumberOwner(customerNumber, msg.sender)) return ["400"];
-        if (isHolded(customerNumber)) return ["400"];
-        if (!isPoolMode(customerNumber)) return ["400"];
-
-        delete customerNumber.router.ttl;
+        clearCustomerNumberRouter(customerNumber);
 
         return ["200"];
     }
@@ -438,28 +447,28 @@ contract RootRouter is Ownable {
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
     function getNextNode(uint256 number) public view returns(string[5] memory) {
-        if (!isValidNumber(number)) return ["400", "", "", "", ""];
+        if (!isValidNumber(number)) return ["400", "", "", "", ttl];
 
         CustomerNumber storage customerNumber = pool[number];
-        if (isBlocked(customerNumber)) return ["400", "", "", "", ""];
-        if (isAvailable(customerNumber)) return ["400", "", "", "", ""];
-        if (isHolded(customerNumber)) return ["400", "", "", "", ""];
+        if (isAvailable(customerNumber)) return ["400", "", "", "", ttl];
+        if (isHolded(customerNumber)) return ["400", "", "", "", ttl];
+        if (isBlocked(customerNumber)) return ["400", "", "", "", ttl];
 
         if (isNumberMode(customerNumber)) {
             return [
-                "200",
-                "0",
+                "200", // Response code
+                "0", // Pool code length
                 Strings.toHexString(customerNumber.owner),
-                (isEmptyString(customerNumber.sipDomain) ? defaultSipDomain : customerNumber.sipDomain),
-                ""
+                (customerNumber.hasSipDomain ? customerNumber.sipDomain : defaultSipDomain),
+                ttl
             ];
         } else {
             return [
-                "200",
-                Strings.toString(customerNumber.router.poolCodeLength),
-                Strings.toString(customerNumber.router.chainId),
+                (customerNumber.hasRouter ? "200" : "400"), // Response code
+                customerNumber.router.poolCodeLength,
+                customerNumber.router.chainId,
                 customerNumber.router.adr,
-                Strings.toString(customerNumber.router.ttl == 0 ? defaultTtl : customerNumber.router.ttl)
+                ttl
             ];
         }
     }
