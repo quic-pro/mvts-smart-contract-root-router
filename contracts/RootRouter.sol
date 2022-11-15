@@ -48,7 +48,6 @@ contract RootRouter is Ownable {
 
     // ----- SETTINGS --------------------------------------------------------------------------------------------------
 
-    uint256 constant public POOL_CODE_LENGTH = 3;
     uint256 constant public POOL_SIZE = 1000;
 
     uint256 public buyPrice = 10 ether;
@@ -416,7 +415,7 @@ contract RootRouter is Ownable {
         return ["200"];
     }
 
-    function setCustomerNumberRouter(uint256 number, Router memory newRouter) external returns(string[1] memory) {
+    function setCustomerNumberRouter(uint256 number, uint256 newChainId, string memory newAddress, uint256 newPoolCodeLength) external returns(string[1] memory) {
         if (!isValidNumber(number)) return ["400"];
 
         CustomerNumber storage customerNumber = pool[number];
@@ -424,6 +423,7 @@ contract RootRouter is Ownable {
         if (isHolded(customerNumber)) return ["400"];
         if (!isPoolMode(customerNumber)) return ["400"];
 
+        Router memory newRouter = Router(Strings.toString(newChainId), newAddress, Strings.toString(newPoolCodeLength));
         setCustomerNumberRouter(customerNumber, newRouter);
 
         return ["200"];
