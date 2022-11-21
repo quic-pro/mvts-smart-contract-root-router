@@ -193,6 +193,14 @@ contract RootRouter is Ownable {
         return numberPools;
     }
 
+    function getAddressNumbers(address adr) public view returns(bool[POOL_SIZE] memory) {
+        bool[POOL_SIZE] memory addressNumbers;
+        for (uint256 number; number < POOL_SIZE; number = number.add(1)) {
+            addressNumbers[number] = (pool[number].owner == adr);
+        }
+        return addressNumbers;
+    }
+
 
 
     // ----- INTERNAL UTILS --------------------------------------------------------------------------------------------
