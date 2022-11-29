@@ -201,8 +201,8 @@ contract RootRouter is ERC721, Ownable {
         return poolCodes;
     }
 
-    function getOwnerCodes(address adr) public view returns(bool[] memory) {
-        bool[] memory ownerCodes = new bool[](ERC721.balanceOf(adr));
+    function getOwnerCodes(address adr) public view returns(bool[POOL_SIZE] memory) {
+        bool[POOL_SIZE] memory ownerCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             ownerCodes[code] = (pool[code].owner == adr);
         }
@@ -238,7 +238,7 @@ contract RootRouter is ERC721, Ownable {
     }
 
     function _exists(uint256 code) internal view virtual override(ERC721) returns(bool) {
-        return isAvailableForBuy(code);
+        return !isAvailableForBuy(code);
     }
 
 
@@ -265,8 +265,8 @@ contract RootRouter is ERC721, Ownable {
         subscriptionDuration = newSubscriptionDuration;
     }
 
-    function setNumberFreezeDuration(uint256 newNumberFreezeDuration) external onlyOwner {
-        codeFreezeDuration = newNumberFreezeDuration;
+    function setCodeFreezeDuration(uint256 newCodeFreezeDuration) external onlyOwner {
+        codeFreezeDuration = newCodeFreezeDuration;
     }
 
     function setTtl(uint256 newTtl) external onlyOwner {
@@ -300,7 +300,7 @@ contract RootRouter is ERC721, Ownable {
 
 
 
-    // ----- CUSTOMER NUMBER MANAGEMENT --------------------------------------------------------------------------------
+    // ----- CODE MANAGEMENT -------------------------------------------------------------------------------------------
 
     function buy(uint256 code) external payable {
         require(isValidCode(code), "Invalid code!");
