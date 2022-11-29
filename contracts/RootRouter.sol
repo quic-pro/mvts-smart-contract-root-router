@@ -3,13 +3,14 @@ pragma solidity 0.8.17;
 
 
 
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 
 
-contract RootRouter is Ownable {
+contract RootRouter is ERC721, Ownable {
     using SafeMath for uint256;
 
 
@@ -69,7 +70,7 @@ contract RootRouter is Ownable {
 
     // ----- CONSTRUCTOR -----------------------------------------------------------------------------------------------
 
-    constructor() {
+    constructor() ERC721("MetaVerse Telecom Service", "MVTS") {
         for (uint256 code; code < 100; code = code.add(1)) {
             pool[code].isBlocked = true;
         }
