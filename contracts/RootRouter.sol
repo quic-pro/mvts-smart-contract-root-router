@@ -70,7 +70,8 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- CONSTRUCTOR -----------------------------------------------------------------------------------------------
 
-    constructor() ERC721("MetaVerse Telecom Service", "MVTS") {
+    constructor() ERC721("MetaVerse Telecom Service", "MVTS")
+    {
         for (uint256 code; code < 100; code = code.add(1)) {
             pool[code].isBlocked = true;
         }
@@ -200,8 +201,8 @@ contract RootRouter is ERC721, Ownable {
         return poolCodes;
     }
 
-    function getOwnerCodes(address adr) public view returns(bool[POOL_SIZE] memory) {
-        bool[POOL_SIZE] memory ownerCodes;
+    function getOwnerCodes(address adr) public view returns(bool[] memory) {
+        bool[] memory ownerCodes = new bool[](ERC721.balanceOf(adr));
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             ownerCodes[code] = (pool[code].owner == adr);
         }
@@ -236,6 +237,10 @@ contract RootRouter is ERC721, Ownable {
         pool[code].hasRouter = false;
     }
 
+    function _exists(uint256 code) internal view virtual override(ERC721) returns(bool) {
+        return isAvailableForBuy(code);
+    }
+
 
 
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
@@ -260,8 +265,8 @@ contract RootRouter is ERC721, Ownable {
         subscriptionDuration = newSubscriptionDuration;
     }
 
-    function setCodeFreezeDuration(uint256 newCodeFreezeDuration) external onlyOwner {
-        codeFreezeDuration = newCodeFreezeDuration;
+    function setNumberFreezeDuration(uint256 newNumberFreezeDuration) external onlyOwner {
+        codeFreezeDuration = newNumberFreezeDuration;
     }
 
     function setTtl(uint256 newTtl) external onlyOwner {
@@ -274,6 +279,8 @@ contract RootRouter is ERC721, Ownable {
 
     function takeAwayOwnership(uint256 code) external onlyOwner {
         require(isValidCode(code), "Invalid code!");
+
+        ERC721._burn(code);
 
         pool[code].owner = address(0);
         pool[code].subscriptionEndTime = 0;
@@ -293,9 +300,8 @@ contract RootRouter is ERC721, Ownable {
 
 
 
-    // ----- CODE MANAGEMENT -------------------------------------------------------------------------------------------
+    // ----- CUSTOMER NUMBER MANAGEMENT --------------------------------------------------------------------------------
 
-    // TODO: Refactory to ERC721 (like ENS Name)
     function buy(uint256 code) external payable {
         require(isValidCode(code), "Invalid code!");
         require(_checkPayment(buyPrice, msg.value), "Insufficient funds!");
@@ -303,6 +309,8 @@ contract RootRouter is ERC721, Ownable {
         require(isAvailableForBuy(code), "The code is not available for buy!");
 
         delete pool[code];
+
+        ERC721._safeMint(msg.sender, code);
 
         pool[code].owner = msg.sender;
         pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
@@ -324,6 +332,8 @@ contract RootRouter is ERC721, Ownable {
 
         if (!isCodeOwner(code, msg.sender)) return ["400"];
 
+        ERC721._transfer(msg.sender, newOwner, code);
+
         pool[code].owner = newOwner;
 
         return ["200"];
@@ -334,8 +344,9 @@ contract RootRouter is ERC721, Ownable {
 
         if (!isCodeOwner(code, msg.sender)) return ["400"];
 
+        ERC721._burn(code);
+
         pool[code].owner = address(0);
-        pool[code].subscriptionEndTime = 0;
 
         return ["200"];
     }
