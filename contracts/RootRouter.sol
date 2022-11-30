@@ -39,7 +39,7 @@ contract RootRouter is ERC721, Ownable {
     struct CodeStatus {
         bool isBlocked; // ─────────┐
         bool isAvailable; //        │
-        bool isHolded; //           │
+        bool isHeld; //             │
         bool isAvailableForBuy; // ─┘
         uint256 subscriptionEndTime;
         uint256 holdingEndTime;
@@ -110,7 +110,7 @@ contract RootRouter is ERC721, Ownable {
         return pool[code].isBlocked;
     }
 
-    function isHolded(uint256 code) public view returns(bool) {
+    function isHeld(uint256 code) public view returns(bool) {
         require(isValidCode(code), "Invalid code!");
         return (
             (pool[code].owner != address(0)) &&
@@ -121,7 +121,7 @@ contract RootRouter is ERC721, Ownable {
 
     function isAvailableForBuy(uint256 code) public view returns(bool) {
         require(isValidCode(code), "Invalid code!");
-        return (isAvailable(code) && !isBlocked(code) && !isHolded(code));
+        return (isAvailable(code) && !isBlocked(code) && !isHeld(code));
     }
 
     function isNumberMode(uint256 code) internal view returns(bool) {
@@ -154,7 +154,7 @@ contract RootRouter is ERC721, Ownable {
         return CodeStatus(
             isBlocked(code),
             isAvailable(code),
-            isHolded(code),
+            isHeld(code),
             isAvailableForBuy(code),
             pool[code].subscriptionEndTime,
             pool[code].subscriptionEndTime.add(codeFreezeDuration)
@@ -177,12 +177,12 @@ contract RootRouter is ERC721, Ownable {
         return availableCodes;
     }
 
-    function getHoldedCodes() public view returns(bool[POOL_SIZE] memory) {
-        bool[POOL_SIZE] memory holdedCodes;
+    function getHeldCodes() public view returns(bool[POOL_SIZE] memory) {
+        bool[POOL_SIZE] memory heldCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            holdedCodes[code] = isHolded(code);
+            heldCodes[code] = isHeld(code);
         }
-        return holdedCodes;
+        return heldCodes;
     }
 
     function getAvailableForBuyCodes() public view returns(bool[POOL_SIZE] memory) {
@@ -356,7 +356,7 @@ contract RootRouter is ERC721, Ownable {
         if (!_checkPayment(modeChangePrice, msg.value)) return ["400"];
 
         if (!isCodeOwner(code, msg.sender)) return ["400"];
-        if (isHolded(code)) return ["400"];
+        if (isHeld(code)) return ["400"];
 
         if (isNumberMode(code)) {
             pool[code].mode = CodeMode.Pool;
@@ -373,7 +373,7 @@ contract RootRouter is ERC721, Ownable {
         if (!isValidCode(code)) return ["400"];
 
         if (!isCodeOwner(code, msg.sender)) return ["400"];
-        if (isHolded(code)) return ["400"];
+        if (isHeld(code)) return ["400"];
         if (!isNumberMode(code)) return ["400"];
 
         _setCodeSipDomain(code, newSipDomain);
@@ -385,7 +385,7 @@ contract RootRouter is ERC721, Ownable {
         if (!isValidCode(code)) return ["400"];
 
         if (!isCodeOwner(code, msg.sender)) return ["400"];
-        if (isHolded(code)) return ["400"];
+        if (isHeld(code)) return ["400"];
         if (!isNumberMode(code)) return ["400"];
 
         _clearCodeSipDomain(code);
@@ -397,7 +397,7 @@ contract RootRouter is ERC721, Ownable {
         if (!isValidCode(code)) return ["400"];
 
         if (!isCodeOwner(code, msg.sender)) return ["400"];
-        if (isHolded(code)) return ["400"];
+        if (isHeld(code)) return ["400"];
         if (!isPoolMode(code)) return ["400"];
 
         Router memory newRouter = Router(Strings.toString(newChainId), newAddress, Strings.toString(newPoolCodeLength));
@@ -410,7 +410,7 @@ contract RootRouter is ERC721, Ownable {
         if (!isValidCode(code)) return ["400"];
 
         if (!isCodeOwner(code, msg.sender)) return ["400"];
-        if (isHolded(code)) return ["400"];
+        if (isHeld(code)) return ["400"];
         if (!isPoolMode(code)) return ["400"];
 
         _clearCodeRouter(code);
@@ -426,7 +426,7 @@ contract RootRouter is ERC721, Ownable {
         if (!isValidCode(code)) return ["400", "", "", "", ttl];
 
         if (isAvailable(code)) return ["400", "", "", "", ttl];
-        if (isHolded(code)) return ["400", "", "", "", ttl];
+        if (isHeld(code)) return ["400", "", "", "", ttl];
         if (isBlocked(code)) return ["400", "", "", "", ttl];
 
         if (isNumberMode(code)) {
