@@ -81,10 +81,6 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
-    function getTimestamp() public view returns(uint256) {
-        return block.timestamp;
-    }
-
     function isValidCode(uint256 code) public pure returns(bool) {
         return (code < POOL_SIZE);
     }
@@ -119,7 +115,7 @@ contract RootRouter is ERC721, Ownable {
 
     function isAvailableForBuy(uint256 code) public view returns(bool) {
         require(isValidCode(code), "Invalid code!");
-        return (!hasOwner(code) && !isBlocked(code) && !isHeld(code));
+        return (!hasOwner(code) && !isBlocked(code));
     }
 
     function isNumberMode(uint256 code) internal view returns(bool) {
@@ -306,6 +302,9 @@ contract RootRouter is ERC721, Ownable {
 
         delete pool[code];
 
+        if (ERC721.ownerOf(code) != address(0)) {
+            ERC721._burn(code);
+        }
         ERC721._safeMint(msg.sender, code);
 
         pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
