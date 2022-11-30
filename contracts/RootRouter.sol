@@ -57,6 +57,7 @@ contract RootRouter is ERC721, Ownable {
     uint256 public codeFreezeDuration = 7776000; // 3 months
     string public ttl = "864000"; // 10 days
 
+    string public baseUri = "https://mvts-metadata.io/";
     string public defaultSipDomain = "sip.quic.pro";
 
 
@@ -230,6 +231,10 @@ contract RootRouter is ERC721, Ownable {
         return !isAvailableForBuy(code);
     }
 
+    function _baseURI() internal view override returns (string memory) {
+        return baseUri;
+    }
+
 
 
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
@@ -286,6 +291,10 @@ contract RootRouter is ERC721, Ownable {
         pool[code].subscriptionEndTime = block.timestamp.add(newExpirationTime);
     }
 
+    function setBaseUri(string memory newBaseUri) external onlyOwner {
+        baseUri = newBaseUri;
+    }
+
 
 
     // ----- CODE MANAGEMENT -------------------------------------------------------------------------------------------
@@ -293,7 +302,6 @@ contract RootRouter is ERC721, Ownable {
     function buy(uint256 code) external payable {
         require(isValidCode(code), "Invalid code!");
         require(_checkPayment(buyPrice, msg.value), "Insufficient funds!");
-
         require(isAvailableForBuy(code), "The code is not available for buy!");
 
         delete pool[code];
@@ -303,15 +311,12 @@ contract RootRouter is ERC721, Ownable {
         pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
     }
 
-    function renewSubscription(uint256 code) external payable returns(string[1] memory) {
-        if (!isValidCode(code)) return ["400"];
-        if (!_checkPayment(subscriptionPrice, msg.value)) return ["400"];
-
-        if (!isCodeOwner(code, msg.sender)) return ["400"];
+    function renewSubscription(uint256 code) external payable {
+        require(isValidCode(code), "Invalid code!");
+        require(_checkPayment(subscriptionPrice, msg.value), "Insufficient funds!");
+        require(isCodeOwner(code, msg.sender), "The sender is not the owner!");
 
         pool[code].subscriptionEndTime = pool[code].subscriptionEndTime.add(subscriptionDuration);
-
-        return ["200"];
     }
 
     function transferOwnershipOfCode(uint256 code, address newOwner) external returns(string[1] memory) {
@@ -334,12 +339,10 @@ contract RootRouter is ERC721, Ownable {
         return ["200"];
     }
 
-    function changeCodeMode(uint256 code) external payable returns(string[1] memory) {
-        if (!isValidCode(code)) return ["400"];
-        if (!_checkPayment(modeChangePrice, msg.value)) return ["400"];
-
-        if (!isCodeOwner(code, msg.sender)) return ["400"];
-        if (isHeld(code)) return ["400"];
+    function changeCodeMode(uint256 code) external payable {
+        require(isValidCode(code), "Invalid code!");
+        require(_checkPayment(modeChangePrice, msg.value), "Insufficient funds!");
+        require(isCodeOwner(code, msg.sender), "The sender is not the owner!");
 
         if (isNumberMode(code)) {
             pool[code].mode = CodeMode.Pool;
@@ -348,8 +351,6 @@ contract RootRouter is ERC721, Ownable {
             pool[code].mode = CodeMode.Number;
             _clearCodeRouter(code);
         }
-
-        return ["200"];
     }
 
     function setCodeSipDomain(uint256 code, string memory newSipDomain) external returns(string[1] memory) {
