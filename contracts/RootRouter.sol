@@ -98,7 +98,7 @@ contract RootRouter is ERC721, Ownable {
 
     function hasOwner(uint256 code) public view returns(bool) {
         require(isValidCode(code), "Invalid code!");
-        return ((ERC721.ownerOf(code) != address(0)) && (block.timestamp < pool[code].subscriptionEndTime.add(codeFreezeDuration)));
+        return (ERC721._exists(code) && (block.timestamp < pool[code].subscriptionEndTime.add(codeFreezeDuration)));
     }
 
     function isBlocked(uint256 code) public view returns(bool) {
@@ -302,7 +302,7 @@ contract RootRouter is ERC721, Ownable {
 
         delete pool[code];
 
-        if (ERC721.ownerOf(code) != address(0)) {
+        if (ERC721._exists(code)) {
             ERC721._burn(code);
         }
         ERC721._safeMint(msg.sender, code);
