@@ -6,8 +6,8 @@
     "test": "truffle test",
     "lint": "solhint 'contracts/**/*.sol'",
     "build": "truffle compile",
-    "migration": "truffle migration",
-    "coverage": "node --max-old-space-size=4096 ./node_modules/.bin/truffle run coverage",
+    "migrate": "truffle migrate",
+    "coverage": "hardhat coverage",
     "deploy:eth-sepolia": "truffle deploy --network eth-sepolia --reset",
     "deploy:eth-mainnet": "truffle deploy --network eth-mainnet --reset",
     "deploy:polygon-mumbai": "truffle deploy --network polygon-mumbai --reset",
@@ -26,17 +26,17 @@
     "email": "sergey@quic.pro"
   },
   "license": "MIT",
-  "dependencies": {
-    "@openzeppelin/contracts": "^4.6.0",
-    "dotenv": "^16.0.1"
-  },
   "devDependencies": {
-    "@openzeppelin/test-helpers": "^0.5.15",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "@openzeppelin/contracts": "^4.8.0",
     "@truffle/hdwallet-provider": "^2.0.8",
+    "chai": "^4.3.7",
+    "dotenv": "^16.0.3",
     "envalid": "^7.3.1",
+    "hardhat": "^2.12.3",
     "solhint": "^3.3.7",
-    "solidity-coverage": "0.8.2",
-    "truffle": "^5.4.33",
+    "solidity-coverage": "^0.8.2",
+    "truffle": "5.6.8",
     "truffle-plugin-verify": "^0.5.25"
   }
 }

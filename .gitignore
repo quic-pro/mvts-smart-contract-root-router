@@ -6,11 +6,17 @@
 /.idea
 
 # Dependencies
-/yarn-error.log
 /node_modules
 
 # Enviroment
 /.env
 
+# Test
+/coverage
+/coverage.json
+
 # Production
 /build
+/artifacts
+/cache
+

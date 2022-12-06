@@ -53,7 +53,7 @@ module.exports = {
             network_id: 56
         }, DefaultNetworkConfig)
     },
-    plugins: ["truffle-plugin-verify"],
+    plugins: ['truffle-plugin-verify'],
     api_keys: {
         etherscan: env.ETHERSCAN_API_KEY,
         polygonscan: env.POLYGONSCAN_API_KEY,
