@@ -28,11 +28,11 @@ contract RootRouter is ERC721, Ownable {
     struct Code {
         bool isBlocked;
         bool hasSipDomain; // Used if number mode
-        bool hasRouter; // Used if pool mode
+        bool hasRouter; // Used if _pool mode
         uint256 subscriptionEndTime;
         CodeMode mode;
         string sipDomain; // Used if number mode
-        Router router; // Used if pool mode
+        Router router; // Used if _pool mode
     }
 
     struct CodeStatus {
@@ -48,14 +48,12 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- SETTINGS --------------------------------------------------------------------------------------------------
 
-    uint256 constant public POOL_SIZE = 1000;
-
     uint256 public buyPrice = 10 ether;
     uint256 public subscriptionPrice = 7 ether;
     uint256 public modeChangePrice = 5 ether;
-    uint256 public subscriptionDuration = 315532800; // 10 years
-    uint256 public codeFreezeDuration = 7776000; // 3 months
-    string public ttl = "864000"; // 10 days
+    uint256 public subscriptionDuration = 3650 days; // ~10 years
+    uint256 public holdingDuration = 30 days; // ~1 month
+    uint256 public ttl = 10 days;
 
     string public baseUri = "https://mvts-metadata.io/";
     string public defaultSipDomain = "sip.quic.pro";
@@ -64,7 +62,9 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- DATA ------------------------------------------------------------------------------------------------------
 
-    Code[POOL_SIZE] public pool;
+    uint256 constant public POOL_SIZE = 1000;
+
+    Code[POOL_SIZE] private _pool;
 
 
 
@@ -72,7 +72,7 @@ contract RootRouter is ERC721, Ownable {
 
     constructor() ERC721("MetaVerse Telecom Service", "MVTS") {
         for (uint256 code; code < 100; code = code.add(1)) {
-            pool[code].isBlocked = true;
+            _pool[code].isBlocked = true;
         }
     }
 
@@ -80,19 +80,30 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
+    function getCodeData(uint256 code) public view returns(Code memory) {
+        require(_isValidCode(code), "Invalid code!");
+
+        Code memory codeData = _pool[code];
+        if (!hasOwner(code)) {
+            delete codeData;
+            codeData.isBlocked =  _pool[code].isBlocked;
+        }
+        return codeData;
+    }
+
     function hasOwner(uint256 code) public view returns(bool) {
         require(_isValidCode(code), "Invalid code!");
-        return (ERC721._exists(code) && (block.timestamp < pool[code].subscriptionEndTime.add(codeFreezeDuration)));
+        return (ERC721._exists(code) && (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration)));
     }
 
     function isBlocked(uint256 code) public view returns(bool) {
         require(_isValidCode(code), "Invalid code!");
-        return pool[code].isBlocked;
+        return _pool[code].isBlocked;
     }
 
     function isHeld(uint256 code) public view returns(bool) {
         require(_isValidCode(code), "Invalid code!");
-        return (hasOwner(code) && (block.timestamp > pool[code].subscriptionEndTime));
+        return (hasOwner(code) && (block.timestamp > _pool[code].subscriptionEndTime));
     }
 
     function isAvailableForMint(uint256 code) public view returns(bool) {
@@ -104,21 +115,21 @@ contract RootRouter is ERC721, Ownable {
         require(_isValidCode(code), "Invalid code!");
         require(!hasOwner(code), "Code not in use!");
 
-        return (pool[code].mode == CodeMode.Number);
+        return (_pool[code].mode == CodeMode.Number);
     }
 
     function isPoolMode(uint256 code) internal view returns(bool) {
         require(_isValidCode(code), "Invalid code!");
         require(!hasOwner(code), "Code not in use!");
 
-        return (pool[code].mode == CodeMode.Pool);
+        return (_pool[code].mode == CodeMode.Pool);
     }
 
     function getMode(uint256 code) public view returns(CodeMode) {
         require(_isValidCode(code), "Invalid code!");
         require(!hasOwner(code), "Code not in use!");
 
-        return pool[code].mode;
+        return _pool[code].mode;
     }
 
     function getCodeStatus(uint256 code) public view returns(CodeStatus memory) {
@@ -129,8 +140,8 @@ contract RootRouter is ERC721, Ownable {
             hasOwner(code),
             isHeld(code),
             isAvailableForMint(code),
-            pool[code].subscriptionEndTime,
-            pool[code].subscriptionEndTime.add(codeFreezeDuration)
+            _pool[code].subscriptionEndTime,
+            _pool[code].subscriptionEndTime.add(holdingDuration)
         );
     }
 
@@ -188,7 +199,7 @@ contract RootRouter is ERC721, Ownable {
             (adr == owner()) ||
             (
                 (ERC721._ownerOf(code) == adr) &&
-                (block.timestamp < pool[code].subscriptionEndTime.add(codeFreezeDuration))
+                (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration))
             )
         );
     }
@@ -198,23 +209,23 @@ contract RootRouter is ERC721, Ownable {
     }
 
     function _setCodeSipDomain(uint256 code, string memory newSipDomain) internal {
-        pool[code].sipDomain = newSipDomain;
-        pool[code].hasSipDomain = true;
+        _pool[code].sipDomain = newSipDomain;
+        _pool[code].hasSipDomain = true;
     }
 
     function _clearCodeSipDomain(uint256 code) internal {
-        delete pool[code].sipDomain;
-        pool[code].hasSipDomain = false;
+        delete _pool[code].sipDomain;
+        _pool[code].hasSipDomain = false;
     }
 
     function _setCodeRouter(uint256 code, Router memory newRouter) internal {
-        pool[code].router = newRouter;
-        pool[code].hasRouter = true;
+        _pool[code].router = newRouter;
+        _pool[code].hasRouter = true;
     }
 
     function _clearCodeRouter(uint256 code) internal {
-        delete pool[code].router;
-        pool[code].hasRouter = false;
+        delete _pool[code].router;
+        _pool[code].hasRouter = false;
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -245,12 +256,12 @@ contract RootRouter is ERC721, Ownable {
         subscriptionDuration = newSubscriptionDuration;
     }
 
-    function setCodeFreezeDuration(uint256 newCodeFreezeDuration) external onlyOwner {
-        codeFreezeDuration = newCodeFreezeDuration;
+    function setHoldingDuration(uint256 newHoldingDuration) external onlyOwner {
+        holdingDuration = newHoldingDuration;
     }
 
     function setTtl(uint256 newTtl) external onlyOwner {
-        ttl = Strings.toString(newTtl);
+        ttl = newTtl;
     }
 
     function setDefaultSipDomain(string memory newDefaultSipDomain) external onlyOwner {
@@ -263,12 +274,12 @@ contract RootRouter is ERC721, Ownable {
 
     function setCodeBlockedStatus(uint256 code, bool newBlockedStatus) external onlyOwner {
         require(_isValidCode(code), "Invalid code!");
-        pool[code].isBlocked = newBlockedStatus;
+        _pool[code].isBlocked = newBlockedStatus;
     }
 
     function setCodeSubscriptionEndTime(uint256 code, uint256 newSubscriptionEndTime) external onlyOwner {
         require(_isValidCode(code), "Invalid code!");
-        pool[code].subscriptionEndTime = newSubscriptionEndTime;
+        _pool[code].subscriptionEndTime = newSubscriptionEndTime;
     }
 
 
@@ -285,8 +296,8 @@ contract RootRouter is ERC721, Ownable {
         }
         ERC721._safeMint(msg.sender, code);
 
-        delete pool[code];
-        pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
+        delete _pool[code];
+        _pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
     }
 
     function renewSubscription(uint256 code) external payable {
@@ -294,7 +305,7 @@ contract RootRouter is ERC721, Ownable {
         require(_isOwner(code, msg.sender), "The sender is not the owner!");
         require(_checkPayment(subscriptionPrice, msg.value), "Insufficient funds!");
 
-        pool[code].subscriptionEndTime = pool[code].subscriptionEndTime.add(subscriptionDuration);
+        _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime.add(subscriptionDuration);
     }
 
     function transferOwnershipOfCode(uint256 code, address newOwner) external returns(string[1] memory) {
@@ -311,7 +322,7 @@ contract RootRouter is ERC721, Ownable {
         if (!_isOwner(code, msg.sender)) return ["400"];
 
         ERC721._burn(code);
-        delete pool[code];
+        delete _pool[code];
 
         return ["200"];
     }
@@ -322,10 +333,10 @@ contract RootRouter is ERC721, Ownable {
         require(_checkPayment(modeChangePrice, msg.value), "Insufficient funds!");
 
         if (isNumberMode(code)) {
-            pool[code].mode = CodeMode.Pool;
+            _pool[code].mode = CodeMode.Pool;
             _clearCodeSipDomain(code);
         } else {
-            pool[code].mode = CodeMode.Number;
+            _pool[code].mode = CodeMode.Number;
             _clearCodeRouter(code);
         }
     }
@@ -380,26 +391,26 @@ contract RootRouter is ERC721, Ownable {
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
     function getNextNode(uint256 code) public view returns(string[5] memory) {
-        if (!_isValidCode(code)) return ["400", "", "", "", ttl];
-        if (isBlocked(code)) return ["400", "", "", "", ttl];
-        if (!hasOwner(code)) return ["400", "", "", "", ttl];
-        if (isHeld(code)) return ["400", "", "", "", ttl];
+        if (!_isValidCode(code)) return ["400", "", "", "", Strings.toString(ttl)];
+        if (isBlocked(code)) return ["400", "", "", "", Strings.toString(ttl)];
+        if (!hasOwner(code)) return ["400", "", "", "", Strings.toString(ttl)];
+        if (isHeld(code)) return ["400", "", "", "", Strings.toString(ttl)];
 
         if (isNumberMode(code)) {
             return [
                 "200", // Response code
                 "0", // Pool code length
                 Strings.toHexString(ERC721._ownerOf(code)),
-                (pool[code].hasSipDomain ? pool[code].sipDomain : defaultSipDomain),
-                ttl
+                (_pool[code].hasSipDomain ? _pool[code].sipDomain : defaultSipDomain),
+                Strings.toString(ttl)
             ];
         } else {
             return [
-                (pool[code].hasRouter ? "200" : "400"), // Response code
-                pool[code].router.poolCodeLength,
-                pool[code].router.chainId,
-                pool[code].router.adr,
-                ttl
+                (_pool[code].hasRouter ? "200" : "400"), // Response code
+                _pool[code].router.poolCodeLength,
+                _pool[code].router.chainId,
+                _pool[code].router.adr,
+                Strings.toString(ttl)
             ];
         }
     }
