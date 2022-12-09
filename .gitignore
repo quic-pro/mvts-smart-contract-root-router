@@ -12,6 +12,7 @@
 /.env
 
 # Test
+/typechain-types
 /coverage
 /coverage.json
 
