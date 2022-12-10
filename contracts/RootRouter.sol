@@ -48,7 +48,7 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- SETTINGS --------------------------------------------------------------------------------------------------
 
-    uint256 public buyPrice = 10 ether;
+    uint256 public mintPrice = 10 ether;
     uint256 public subscriptionPrice = 7 ether;
     uint256 public modeChangePrice = 5 ether;
     uint256 public subscriptionDuration = 3650 days; // ~10 years
@@ -82,13 +82,9 @@ contract RootRouter is ERC721, Ownable {
 
     function getCodeData(uint256 code) public view returns(Code memory) {
         require(_isValidCode(code), "Invalid code!");
+        require(hasOwner(code), "Code not in use!");
 
-        Code memory codeData = _pool[code];
-        if (!hasOwner(code)) {
-            delete codeData;
-            codeData.isBlocked =  _pool[code].isBlocked;
-        }
-        return codeData;
+        return _pool[code];
     }
 
     function hasOwner(uint256 code) public view returns(bool) {
@@ -111,23 +107,23 @@ contract RootRouter is ERC721, Ownable {
         return (!hasOwner(code) && !isBlocked(code));
     }
 
-    function isNumberMode(uint256 code) internal view returns(bool) {
+    function isNumberMode(uint256 code) public view returns(bool) {
         require(_isValidCode(code), "Invalid code!");
-        require(!hasOwner(code), "Code not in use!");
+        require(hasOwner(code), "Code not in use!");
 
         return (_pool[code].mode == CodeMode.Number);
     }
 
-    function isPoolMode(uint256 code) internal view returns(bool) {
+    function isPoolMode(uint256 code) public view returns(bool) {
         require(_isValidCode(code), "Invalid code!");
-        require(!hasOwner(code), "Code not in use!");
+        require(hasOwner(code), "Code not in use!");
 
         return (_pool[code].mode == CodeMode.Pool);
     }
 
     function getMode(uint256 code) public view returns(CodeMode) {
         require(_isValidCode(code), "Invalid code!");
-        require(!hasOwner(code), "Code not in use!");
+        require(hasOwner(code), "Code not in use!");
 
         return _pool[code].mode;
     }
@@ -135,14 +131,25 @@ contract RootRouter is ERC721, Ownable {
     function getCodeStatus(uint256 code) public view returns(CodeStatus memory) {
         require(_isValidCode(code), "Invalid code!");
 
-        return CodeStatus(
-            isBlocked(code),
-            hasOwner(code),
-            isHeld(code),
-            isAvailableForMint(code),
-            _pool[code].subscriptionEndTime,
-            _pool[code].subscriptionEndTime.add(holdingDuration)
-        );
+        if (hasOwner(code)) {
+            return CodeStatus(
+                isBlocked(code),
+                true, // hasOwner
+                isHeld(code),
+                isAvailableForMint(code),
+                _pool[code].subscriptionEndTime,
+                _pool[code].subscriptionEndTime.add(holdingDuration)
+            );
+        } else {
+            return CodeStatus(
+                isBlocked(code),
+                false, // hasOwner
+                false, // isHeld
+                isAvailableForMint(code),
+                0, // subscriptionEndTime
+                0 // holdEndTime
+            );
+        }
     }
 
     function getBlockedCodes() public view returns(bool[POOL_SIZE] memory) {
@@ -172,7 +179,7 @@ contract RootRouter is ERC721, Ownable {
     function getPoolCodes() public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory poolCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            poolCodes[code] = (!isAvailableForMint(code) && isPoolMode(code));
+            poolCodes[code] = (!isAvailableForMint(code) && (_pool[code].mode == CodeMode.Pool));
         }
         return poolCodes;
     }
@@ -240,8 +247,8 @@ contract RootRouter is ERC721, Ownable {
         payable(owner()).transfer(address(this).balance);
     }
 
-    function setBuyPrice(uint256 newBuyPrice) external onlyOwner {
-        buyPrice = newBuyPrice;
+    function setMintPrice(uint256 newMintPrice) external onlyOwner {
+        mintPrice = newMintPrice;
     }
 
     function setSubscriptionPrice(uint256 newSubscriptionPrice) external onlyOwner {
@@ -289,7 +296,7 @@ contract RootRouter is ERC721, Ownable {
     function mint(uint256 code) external payable {
         require(_isValidCode(code), "Invalid code!");
         require(isAvailableForMint(code), "The code is not available for mint!");
-        require(_checkPayment(buyPrice, msg.value), "Insufficient funds!");
+        require(_checkPayment(mintPrice, msg.value), "Insufficient funds!");
 
         if (ERC721._exists(code)) {
             ERC721._burn(code);
