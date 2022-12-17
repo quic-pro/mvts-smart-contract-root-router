@@ -56,7 +56,7 @@ describe('RootRouter', () => {
             accounts
         };
     }
-
+    
     function expectCodeData(actualCodeData: RootRouter.CodeStructOutput, expectedCodeData?: Partial<RootRouter.CodeStructOutput>) {
         expect(actualCodeData.isBlocked).to.equal(expectedCodeData?.isBlocked ?? false);
         expect(actualCodeData.hasSipDomain).to.equal(expectedCodeData?.hasSipDomain ?? false);
@@ -67,6 +67,15 @@ describe('RootRouter', () => {
         expect(actualCodeData.router.chainId).to.equal( expectedCodeData?.router?.chainId ?? '');
         expect(actualCodeData.router.adr).to.equal( expectedCodeData?.router?.adr ?? '');
         expect(actualCodeData.router.poolCodeLength).to.equal( expectedCodeData?.router?.poolCodeLength ?? '');
+    }
+
+    function expectCodeStatus(actualCodeStatus: RootRouter.CodeStatusStruct, expectedCodeStatus?: Partial<RootRouter.CodeStatusStruct>) {
+        expect(actualCodeStatus.isBlocked).to.equal(expectedCodeStatus?.isBlocked ?? false);
+        expect(actualCodeStatus.hasOwner).to.equal(expectedCodeStatus?.hasOwner ?? false);
+        expect(actualCodeStatus.isHeld).to.equal(expectedCodeStatus?.isHeld ?? false);
+        expect(actualCodeStatus.isAvailableForMint).to.equal(expectedCodeStatus?.isAvailableForMint ?? false);
+        expect(actualCodeStatus.subscriptionEndTime).to.closeTo(expectedCodeStatus?.subscriptionEndTime ?? 0, 60);
+        expect(actualCodeStatus.holdEndTime).to.closeTo(expectedCodeStatus?.holdEndTime ?? 0, 60);
     }
 
     async function getEndTime(duration: number | InstanceType<typeof BigNumber>): Promise<InstanceType<typeof BigNumber>> {
@@ -178,7 +187,9 @@ describe('RootRouter', () => {
         const code = 100;
 
         await rootRouter.mint(code);
-        expectCodeData(await rootRouter.getCodeData(code), {subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION)});
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION)
+        });
     });
 
     it('Method isBlocked: if code is invalid', async () => {
@@ -352,32 +363,58 @@ describe('RootRouter', () => {
         expect(await rootRouter.getMode(code)).to.equal(CodeMode.Pool);
     });
 
-    it('Method getCodeStatus', async () => {
+    it('Method getCodeStatus: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.getCodeStatus(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
+    });
 
-        const timestamp = await time.latest() + 60;
+    it('Method getCodeStatus: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
 
-        expect(await rootRouter.getCodeStatus(100)).to.have.deep.members([
-            false, // isBlocked
-            false, // hasOwner
-            false, // isHeld
-            true, // isAvailableForMint
-            BigNumber.from(0), // subscriptionEndTime
-            BigNumber.from(0) // holdEndTime
-        ]);
-        await rootRouter.mint(100);
-        await rootRouter.setCodeSubscriptionEndTime(100, timestamp);
-       /* expect(await rootRouter.getCodeStatus(100)).to.have.deep.members([
-            false, // isBlocked
-            true, // hasOwner
-            false, // isHeld
-            false, // isAvailableForMint
-            BigNumber.from(timestamp), // subscriptionEndTime
-            BigNumber.from(timestamp + HOLDING_DURATION) // holdEndTime
-        ]);*/
+        await rootRouter.setCodeBlockedStatus(code, true);
+        expectCodeStatus(await rootRouter.getCodeStatus(code), {
+            isBlocked: true,
+            isAvailableForMint: false
+        });
+    });
 
+    it('Method getCodeStatus: if the code has no owner', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        expectCodeStatus(await rootRouter.getCodeStatus(code), {
+            isAvailableForMint: true
+        });
+    });
+
+    it('Method getCodeStatus: if the code has an owner', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        expectCodeStatus(await rootRouter.getCodeStatus(code), {
+            hasOwner: true,
+            isAvailableForMint: false,
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+            holdEndTime: await getEndTime(SUBSCRIPTION_DURATION.add(HOLDING_DURATION))
+        });
+    });
+
+    it('Method getCodeStatus: if the code is held', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeSubscriptionEndTime(code, await getEndTime(0));
+        expectCodeStatus(await rootRouter.getCodeStatus(code), {
+            hasOwner: true,
+            isHeld: true,
+            isAvailableForMint: false,
+            subscriptionEndTime: await getEndTime(0),
+            holdEndTime: await getEndTime(HOLDING_DURATION)
+        });
     });
 
     it('Method getBlockedCodes', async () => {
@@ -392,54 +429,55 @@ describe('RootRouter', () => {
 
     it('Method getHeldCodes', async () => {
         const {rootRouter} = await loadFixture(deploy);
+        const heldCode = 100;
 
-        await rootRouter.mint(100);
-        await rootRouter.setCodeSubscriptionEndTime(100, await time.latest());
+        await rootRouter.mint(heldCode);
+        await rootRouter.setCodeSubscriptionEndTime(heldCode, await getEndTime(0));
 
         const heldCodes = await rootRouter.getHeldCodes();
         expect(heldCodes).to.length(POOL_SIZE);
         for (let code = 0; code < POOL_SIZE; ++code) {
-            expect(heldCodes[code]).to.equal(code === 100);
+            expect(heldCodes[code]).to.equal(code === heldCode);
         }
     });
 
     it('Method getAvailableForMintCodes', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
-        await rootRouter.mint(100);
-        await rootRouter.setCodeSubscriptionEndTime(100, await time.latest());
-
         const availableForMintCodes = await rootRouter.getAvailableForMintCodes();
         expect(availableForMintCodes).to.length(POOL_SIZE);
         for (let code = 0; code < POOL_SIZE; ++code) {
-            expect(availableForMintCodes[code]).to.equal(code > 100);
+            expect(availableForMintCodes[code]).to.equal(code >= 100);
         }
     });
 
     it('Method getPoolCodes', async () => {
         const {rootRouter} = await loadFixture(deploy);
+        const poolCode = 100;
 
-        await rootRouter.mint(100);
-        await rootRouter.changeCodeMode(100);
+        await rootRouter.mint(poolCode);
+        await rootRouter.changeCodeMode(poolCode);
 
         const poolCodes = await rootRouter.getPoolCodes();
         expect(poolCodes).to.length(POOL_SIZE);
         for (let code = 0; code < POOL_SIZE; ++code) {
-            expect(poolCodes[code]).to.equal(code === 100);
+            expect(poolCodes[code]).to.equal(code === poolCode);
         }
     });
 
     it('Method getOwnerCodes', async () => {
-        const {rootRouter, contractOwner, accounts} = await loadFixture(deploy);
+        const {rootRouter, contractOwner} = await loadFixture(deploy);
+        const codeContractOwner = 100;
 
-        await rootRouter.connect(accounts[0]).mint(100, {value: MINT_PRICE});
+        await rootRouter.mint(codeContractOwner);
 
-        const ownerCodes = await rootRouter.connect(accounts[0]).getOwnerCodes(accounts[0].address);
+        const ownerCodes = await rootRouter.getOwnerCodes(contractOwner.address);
         expect(ownerCodes).to.length(POOL_SIZE);
         for (let code = 0; code < POOL_SIZE; ++code) {
-            expect(ownerCodes[code]).to.equal(code === 100);
+            expect(ownerCodes[code]).to.equal(code === codeContractOwner);
         }
     });
+
 
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
 
@@ -610,14 +648,14 @@ describe('RootRouter', () => {
 
     it('Method mint: minting with cleaning of code data after the previous owner', async () => {
         const {rootRouter, accounts: [client1, client2]} = await loadFixture(deploy);
-        const code = 100, subscriptionEndTime = BigNumber.from(await time.latest() + SUBSCRIPTION_DURATION);
+        const code = 100;
 
         await rootRouter.connect(client1).mint(code, {value: MINT_PRICE});
         await rootRouter.connect(client1).changeCodeMode(code, {value: MODE_CHANGE_PRICE});
         await rootRouter.setCodeSubscriptionEndTime(code, 0);
 
         expect(await rootRouter.connect(client2).mint(code, {value: MINT_PRICE})).to.changeTokenBalances(rootRouter, [client1, client2], [-1, 1]);
-        expectCodeData(await rootRouter.getCodeData(code), {subscriptionEndTime});
+        expectCodeData(await rootRouter.getCodeData(code), {subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION)});
     });
 
     it('Method renewSubscription: if code is invalid', async () => {
@@ -647,11 +685,13 @@ describe('RootRouter', () => {
 
     it('Method renewSubscription: successful', async () => {
         const {rootRouter, contractOwner} = await loadFixture(deploy);
-        const code = 100, subscriptionEndTime = BigNumber.from(await time.latest() + SUBSCRIPTION_DURATION);
+        const code = 100;
 
         await rootRouter.connect(contractOwner).mint(code, {value: MINT_PRICE});
         expect(await rootRouter.connect(contractOwner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.not.reverted;
-        expectCodeData(await rootRouter.getCodeData(code), {subscriptionEndTime: subscriptionEndTime.add(SUBSCRIPTION_DURATION)});
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION.mul(2))
+        });
     });
 
     it('Method transferOwnershipOfCode', async () => {
