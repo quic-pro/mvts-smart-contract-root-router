@@ -2,12 +2,10 @@
 pragma solidity 0.8.17;
 
 
-
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-
 
 
 contract RootRouter is ERC721, Ownable {
@@ -17,7 +15,7 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- CUSTOM TYPES ----------------------------------------------------------------------------------------------
 
-    enum CodeMode { Number, Pool }
+    enum CodeMode {Number, Pool}
 
     struct Router {
         string chainId;
@@ -28,11 +26,11 @@ contract RootRouter is ERC721, Ownable {
     struct Code {
         bool isBlocked;
         bool hasSipDomain; // Used if number mode
-        bool hasRouter; // Used if _pool mode
+        bool hasRouter; // Used if pool mode
         uint256 subscriptionEndTime;
         CodeMode mode;
         string sipDomain; // Used if number mode
-        Router router; // Used if _pool mode
+        Router router; // Used if pool mode
     }
 
     struct CodeStatus {
@@ -80,55 +78,55 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
-    function getCodeData(uint256 code) public view returns(Code memory) {
+    function getCodeData(uint256 code) public view returns (Code memory) {
         require(_isValidCode(code), "Invalid code!");
         require(hasOwner(code), "Code not in use!");
 
         return _pool[code];
     }
 
-    function hasOwner(uint256 code) public view returns(bool) {
+    function hasOwner(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return (ERC721._exists(code) && (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration)));
     }
 
-    function isBlocked(uint256 code) public view returns(bool) {
+    function isBlocked(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return _pool[code].isBlocked;
     }
 
-    function isHeld(uint256 code) public view returns(bool) {
+    function isHeld(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return (hasOwner(code) && (block.timestamp > _pool[code].subscriptionEndTime));
     }
 
-    function isAvailableForMint(uint256 code) public view returns(bool) {
+    function isAvailableForMint(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return (!hasOwner(code) && !isBlocked(code));
     }
 
-    function isNumberMode(uint256 code) public view returns(bool) {
+    function isNumberMode(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         require(hasOwner(code), "Code not in use!");
 
         return (_pool[code].mode == CodeMode.Number);
     }
 
-    function isPoolMode(uint256 code) public view returns(bool) {
+    function isPoolMode(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         require(hasOwner(code), "Code not in use!");
 
         return (_pool[code].mode == CodeMode.Pool);
     }
 
-    function getMode(uint256 code) public view returns(CodeMode) {
+    function getMode(uint256 code) public view returns (CodeMode) {
         require(_isValidCode(code), "Invalid code!");
         require(hasOwner(code), "Code not in use!");
 
         return _pool[code].mode;
     }
 
-    function getCodeStatus(uint256 code) public view returns(CodeStatus memory) {
+    function getCodeStatus(uint256 code) public view returns (CodeStatus memory) {
         require(_isValidCode(code), "Invalid code!");
 
         if (hasOwner(code)) {
@@ -152,7 +150,7 @@ contract RootRouter is ERC721, Ownable {
         }
     }
 
-    function getBlockedCodes() public view returns(bool[POOL_SIZE] memory) {
+    function getBlockedCodes() public view returns (bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory blockedCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             blockedCodes[code] = isBlocked(code);
@@ -160,7 +158,7 @@ contract RootRouter is ERC721, Ownable {
         return blockedCodes;
     }
 
-    function getHeldCodes() public view returns(bool[POOL_SIZE] memory) {
+    function getHeldCodes() public view returns (bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory heldCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             heldCodes[code] = isHeld(code);
@@ -168,7 +166,7 @@ contract RootRouter is ERC721, Ownable {
         return heldCodes;
     }
 
-    function getAvailableForMintCodes() public view returns(bool[POOL_SIZE] memory) {
+    function getAvailableForMintCodes() public view returns (bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory availableForMintCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             availableForMintCodes[code] = isAvailableForMint(code);
@@ -176,7 +174,7 @@ contract RootRouter is ERC721, Ownable {
         return availableForMintCodes;
     }
 
-    function getPoolCodes() public view returns(bool[POOL_SIZE] memory) {
+    function getPoolCodes() public view returns (bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory poolCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             poolCodes[code] = (!isAvailableForMint(code) && (_pool[code].mode == CodeMode.Pool));
@@ -184,7 +182,7 @@ contract RootRouter is ERC721, Ownable {
         return poolCodes;
     }
 
-    function getOwnerCodes(address adr) public view returns(bool[POOL_SIZE] memory) {
+    function getOwnerCodes(address adr) public view returns (bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory ownerCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             ownerCodes[code] = _isOwner(code, adr);
@@ -196,22 +194,19 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- INTERNAL UTILS --------------------------------------------------------------------------------------------
 
-    function _isValidCode(uint256 code) internal pure returns(bool) {
+    function _isValidCode(uint256 code) internal pure returns (bool) {
         return (code < POOL_SIZE);
     }
 
-    function _isOwner(uint256 code, address adr) internal view returns(bool) {
+    function _isOwner(uint256 code, address adr) internal view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return (
-            (adr == owner()) ||
-            (
-                (ERC721._ownerOf(code) == adr) &&
-                (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration))
-            )
+            (ERC721._ownerOf(code) == adr) &&
+            (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration))
         );
     }
 
-    function _checkPayment(uint256 expected, uint256 received) internal view returns(bool) {
+    function _checkPayment(uint256 expected, uint256 received) internal view returns (bool) {
         return ((received >= expected) || (msg.sender == owner()));
     }
 
@@ -295,7 +290,7 @@ contract RootRouter is ERC721, Ownable {
 
     function mint(uint256 code) external payable {
         require(_isValidCode(code), "Invalid code!");
-        require(isAvailableForMint(code), "The code is not available for mint!");
+        require(isAvailableForMint(code), "Not available for minting!");
         require(_checkPayment(mintPrice, msg.value), "Insufficient funds!");
 
         if (ERC721._exists(code)) {
@@ -309,34 +304,30 @@ contract RootRouter is ERC721, Ownable {
 
     function renewSubscription(uint256 code) external payable {
         require(_isValidCode(code), "Invalid code!");
-        require(_isOwner(code, msg.sender), "The sender is not the owner!");
+        require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
         require(_checkPayment(subscriptionPrice, msg.value), "Insufficient funds!");
 
         _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime.add(subscriptionDuration);
     }
 
-    function transferOwnershipOfCode(uint256 code, address newOwner) external returns(string[1] memory) {
-        if (!_isValidCode(code)) return ["400"];
-        if (!_isOwner(code, msg.sender)) return ["400"];
+    function transferOwnershipOfCode(uint256 code, address newOwner) external {
+        require(_isValidCode(code), "Invalid code!");
+        require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
 
         ERC721._transfer(msg.sender, newOwner, code);
-
-        return ["200"];
     }
 
-    function renounceOwnershipOfCode(uint256 code) external returns(string[1] memory) {
-        if (!_isValidCode(code)) return ["400"];
-        if (!_isOwner(code, msg.sender)) return ["400"];
+    function renounceOwnershipOfCode(uint256 code) external {
+        require(_isValidCode(code), "Invalid code!");
+        require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
 
         ERC721._burn(code);
         delete _pool[code];
-
-        return ["200"];
     }
 
     function changeCodeMode(uint256 code) external payable {
         require(_isValidCode(code), "Invalid code!");
-        require(_isOwner(code, msg.sender), "The sender is not the owner!");
+        require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
         require(_checkPayment(modeChangePrice, msg.value), "Insufficient funds!");
 
         if (isNumberMode(code)) {
@@ -348,56 +339,48 @@ contract RootRouter is ERC721, Ownable {
         }
     }
 
-    function setCodeSipDomain(uint256 code, string memory newSipDomain) external returns(string[1] memory) {
-        if (!_isValidCode(code)) return ["400"];
-        if (!_isOwner(code, msg.sender)) return ["400"];
-        if (isBlocked(code)) return ["400"];
-        if (!isNumberMode(code)) return ["400"];
+    function setCodeSipDomain(uint256 code, string memory newSipDomain) external {
+        require(_isValidCode(code), "Invalid code!");
+        require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
+        require(!isBlocked(code), "Code blocked!");
+        require(isNumberMode(code), "Invalid code mode!");
 
         _setCodeSipDomain(code, newSipDomain);
-
-        return ["200"];
     }
 
-    function clearCodeSipDomain(uint256 code) external returns(string[1] memory) {
-        if (!_isValidCode(code)) return ["400"];
-        if (!_isOwner(code, msg.sender)) return ["400"];
-        if (isBlocked(code)) return ["400"];
-        if (!isNumberMode(code)) return ["400"];
+    function clearCodeSipDomain(uint256 code) external {
+        require(_isValidCode(code), "Invalid code!");
+        require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
+        require(!isBlocked(code), "Code blocked!");
+        require(isNumberMode(code), "Invalid code mode!");
 
         _clearCodeSipDomain(code);
-
-        return ["200"];
     }
 
-    function setCodeRouter(uint256 code, uint256 newChainId, string memory newAddress, uint256 newPoolCodeLength) external returns(string[1] memory) {
-        if (!_isValidCode(code)) return ["400"];
-        if (!_isOwner(code, msg.sender)) return ["400"];
-        if (isBlocked(code)) return ["400"];
-        if (!isPoolMode(code)) return ["400"];
+    function setCodeRouter(uint256 code, uint256 newChainId, string memory newAddress, uint256 newPoolCodeLength) external {
+        require(_isValidCode(code), "Invalid code!");
+        require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
+        require(!isBlocked(code), "Code blocked!");
+        require(isPoolMode(code), "Invalid code mode!");
 
         Router memory newRouter = Router(Strings.toString(newChainId), newAddress, Strings.toString(newPoolCodeLength));
         _setCodeRouter(code, newRouter);
-
-        return ["200"];
     }
 
-    function clearCodeRouter(uint256 code) external returns(string[1] memory) {
-        if (!_isValidCode(code)) return ["400"];
-        if (!_isOwner(code, msg.sender)) return ["400"];
-        if (isBlocked(code)) return ["400"];
-        if (!isPoolMode(code)) return ["400"];
+    function clearCodeRouter(uint256 code) external {
+        require(_isValidCode(code), "Invalid code!");
+        require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
+        require(!isBlocked(code), "Code blocked!");
+        require(isPoolMode(code), "Invalid code mode!");
 
         _clearCodeRouter(code);
-
-        return ["200"];
     }
 
 
 
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
-    function getNextNode(uint256 code) public view returns(string[5] memory) {
+    function getNextNode(uint256 code) public view returns (string[5] memory) {
         if (!_isValidCode(code)) return ["400", "", "", "", Strings.toString(ttl)];
         if (isBlocked(code)) return ["400", "", "", "", Strings.toString(ttl)];
         if (!hasOwner(code)) return ["400", "", "", "", Strings.toString(ttl)];
