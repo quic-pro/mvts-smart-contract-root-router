@@ -6,7 +6,7 @@ import {RootRouter} from '../typechain-types';
 import {DAY, YEAR} from './constants';
 
 
-const {BigNumber, provider} = ethers;
+const {BigNumber} = ethers;
 const {parseEther, formatEther} = ethers.utils;
 
 
@@ -21,9 +21,9 @@ describe('RootRouter', () => {
     const MINT_PRICE = parseEther('10');
     const SUBSCRIPTION_PRICE = parseEther('7');
     const MODE_CHANGE_PRICE = parseEther('5');
-    const SUBSCRIPTION_DURATION = 10 * YEAR;
-    const HOLDING_DURATION = 30 * DAY;
-    const TTL = 10 * DAY;
+    const SUBSCRIPTION_DURATION = BigNumber.from(10 * YEAR);
+    const HOLDING_DURATION = BigNumber.from(30 * DAY);
+    const TTL = BigNumber.from(10 * DAY);
     const BASE_URI = 'https://mvts-metadata.io/';
     const DEFAULT_SIP_DOMAIN = 'sip.quic.pro';
 
@@ -49,7 +49,12 @@ describe('RootRouter', () => {
         const rootRouter = (await RootRouter.deploy()) as RootRouter;
         await rootRouter.deployed();
 
-        return {rootRouter, contractOwner, accounts};
+        return {
+            provider: ethers.provider,
+            rootRouter,
+            contractOwner,
+            accounts
+        };
     }
 
     function expectCodeData(actualCodeData: RootRouter.CodeStructOutput, expectedCodeData?: Partial<RootRouter.CodeStructOutput>) {
@@ -64,11 +69,15 @@ describe('RootRouter', () => {
         expect(actualCodeData.router.poolCodeLength).to.equal( expectedCodeData?.router?.poolCodeLength ?? '');
     }
 
+    async function getEndTime(duration: number | InstanceType<typeof BigNumber>): Promise<InstanceType<typeof BigNumber>> {
+        return BigNumber.from(await time.latest()).add(duration);
+    }
+
 
 
     // ----- SETTINGS --------------------------------------------------------------------------------------------------
 
-    it('Initial settings', async () => {
+    it('The initial settings should be as expected', async () => {
         const {rootRouter, contractOwner} = await loadFixture(deploy);
 
         expect(await rootRouter.owner()).to.equal(contractOwner.address);
@@ -85,7 +94,7 @@ describe('RootRouter', () => {
 
     // ----- DATA ------------------------------------------------------------------------------------------------------
 
-    it('Initial data', async () => {
+    it('The initial data should be as expected', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         expect(await rootRouter.name()).to.equal(NAME);
@@ -100,7 +109,7 @@ describe('RootRouter', () => {
 
     // ----- CONSTRUCTOR -----------------------------------------------------------------------------------------------
 
-    it('Constructor', async () => {
+    it('The constructor must block the first hundred numbers', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         for (let code = 0; code < POOL_SIZE; ++code) {
@@ -111,109 +120,236 @@ describe('RootRouter', () => {
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
-    it('Method getCodeData', async () => {
-        const {rootRouter} = await loadFixture(deploy);
-
-        await expect(rootRouter.getCodeData(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-        await expect(rootRouter.isNumberMode(100)).to.revertedWith(REASON_CODE_NOT_IN_USE);
-
-        const timestamp = await time.latest();
-
-        await rootRouter.mint(100);
-        await rootRouter.setCodeSubscriptionEndTime(100, timestamp);
-        expect(await rootRouter.getCodeData(100)).to.have.deep.members([
-            false, // isBlocked
-            false, // hasSipDomain
-            false, // hasRouter
-            BigNumber.from(timestamp), // subscriptionEndTime
-            CodeMode.Number, // mode
-            '', // sipDomain
-            [ // router
-                '', // chainId
-                '', // adr
-                '' // poolCodeLength
-            ]
-        ]);
-    });
-
-    it('Method hasOwner', async () => {
+    it('Method hasOwner: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.hasOwner(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-
-        expect(await rootRouter.hasOwner(100)).to.false;
-        await rootRouter.mint(100);
-        expect(await rootRouter.hasOwner(100)).to.true;
     });
 
-    it('Method isBlocked', async () => {
+    it('Method hasOwner: if the code has no owner', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        expect(await rootRouter.hasOwner(code)).to.false;
+    });
+
+    it('Method hasOwner: if the code has an owner', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        // If the code has an owner
+        await rootRouter.mint(code);
+        expect(await rootRouter.hasOwner(code)).to.true;
+    });
+
+    it('Method hasOwner: if the code is held', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeSubscriptionEndTime(code, await time.latest());
+        expect(await rootRouter.hasOwner(code)).to.true;
+    });
+
+    it('Method hasOwner: if the code subscription and hold time is over', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeSubscriptionEndTime(code, 0);
+        expect(await rootRouter.hasOwner(code)).to.false;
+    });
+
+    it('Method getCodeData: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+
+        await expect(rootRouter.getCodeData(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method getCodeData: if code not in use', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await expect(rootRouter.getCodeData(code)).to.revertedWith(REASON_CODE_NOT_IN_USE);
+    });
+
+    it('Method getCodeData: if the call is valid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        expectCodeData(await rootRouter.getCodeData(code), {subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION)});
+    });
+
+    it('Method isBlocked: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.isBlocked(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-
-        expect(await rootRouter.isBlocked(100)).to.false;
-        await rootRouter.setCodeBlockedStatus(100, true);
-        expect(await rootRouter.isBlocked(100)).to.true;
     });
 
-    it('Method isHeld', async () => {
+    it('Method isBlocked: if the code is not blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        expect(await rootRouter.isBlocked(code)).to.false;
+    });
+
+    it('Method isBlocked: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.setCodeBlockedStatus(code, true);
+        expect(await rootRouter.isBlocked(code)).to.true;
+    });
+
+    it('Method isHeld: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.isHeld(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-
-        expect(await rootRouter.isHeld(0)).to.false;
-        await rootRouter.mint(100);
-        await rootRouter.setCodeSubscriptionEndTime(100, await time.latest());
-        expect(await rootRouter.isHeld(100)).to.true;
     });
 
-    it('Method isAvailableForMint', async () => {
+    it('Method isHeld: if the code is not held', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        expect(await rootRouter.isHeld(code)).to.false;
+    });
+
+    it('Method isHeld: if the code is held', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeSubscriptionEndTime(code, await time.latest());
+        expect(await rootRouter.isHeld(code)).to.true;
+    });
+
+    it('Method isAvailableForMint: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.isAvailableForMint(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-
-        expect(await rootRouter.isAvailableForMint(0)).to.false;
-        expect(await rootRouter.isAvailableForMint(100)).to.true;
-        await rootRouter.mint(100);
-        expect(await rootRouter.isAvailableForMint(100)).to.false;
-        await rootRouter.setCodeSubscriptionEndTime(100, await time.latest());
-        expect(await rootRouter.isAvailableForMint(100)).to.false;
     });
 
-    it('Method isNumberMode', async () => {
+    it('Method isAvailableForMint: if the code is available for minting', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        expect(await rootRouter.isAvailableForMint(code)).to.true;
+    });
+
+    it('Method isAvailableForMint: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.setCodeBlockedStatus(code, true);
+        expect(await rootRouter.isAvailableForMint(code)).to.false;
+    });
+
+    it('Method isAvailableForMint: if the code has an owner', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        expect(await rootRouter.isAvailableForMint(code)).to.false;
+    });
+
+    it('Method isAvailableForMint: if the code is blocked and has an owner', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeBlockedStatus(code, true);
+        expect(await rootRouter.isAvailableForMint(code)).to.false;
+    });
+
+    it('Method isNumberMode: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.isNumberMode(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-        await expect(rootRouter.isNumberMode(100)).to.revertedWith(REASON_CODE_NOT_IN_USE);
-
-        await rootRouter.mint(100);
-        expect(await rootRouter.isNumberMode(100)).to.true;
-        await rootRouter.changeCodeMode(100);
-        expect(await rootRouter.isNumberMode(100)).to.false;
     });
 
-    it('Method isPoolMode', async () => {
+    it('Method isNumberMode: if code not in use', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await expect(rootRouter.isNumberMode(code)).to.revertedWith(REASON_CODE_NOT_IN_USE);
+    });
+
+    it('Method isNumberMode: if the code is a number', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        expect(await rootRouter.isNumberMode(code)).to.true;
+    });
+
+    it('Method isNumberMode: if the code is a pool', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(code);
+        expect(await rootRouter.isNumberMode(code)).to.false;
+    });
+
+    it('Method isPoolMode: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.isPoolMode(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-        await expect(rootRouter.isPoolMode(100)).to.revertedWith(REASON_CODE_NOT_IN_USE);
-
-        await rootRouter.mint(100);
-        expect(await rootRouter.isPoolMode(100)).to.false;
-        await rootRouter.changeCodeMode(100);
-        expect(await rootRouter.isPoolMode(100)).to.true;
     });
 
-    it('Method getMode', async () => {
+    it('Method isPoolMode: if code not in use', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await expect(rootRouter.isPoolMode(code)).to.revertedWith(REASON_CODE_NOT_IN_USE);
+    });
+
+    it('Method isPoolMode: if the code is a number', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        expect(await rootRouter.isPoolMode(code)).to.false;
+    });
+
+    it('Method isPoolMode: if the code is a pool', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(code);
+        expect(await rootRouter.isPoolMode(code)).to.true;
+    });
+
+    it('Method getMode: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.getMode(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-        await expect(rootRouter.getMode(100)).to.revertedWith(REASON_CODE_NOT_IN_USE);
+    });
 
-        await rootRouter.mint(100);
-        expect(await rootRouter.getMode(100)).to.equal(CodeMode.Number);
-        await rootRouter.changeCodeMode(100);
-        expect(await rootRouter.getMode(100)).to.equal(CodeMode.Pool);
+    it('Method getMode: if code not in use', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await expect(rootRouter.getMode(code)).to.revertedWith(REASON_CODE_NOT_IN_USE);
+    });
+
+    it('Method getMode: if the code is a number', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        expect(await rootRouter.getMode(code)).to.equal(CodeMode.Number);
+    });
+
+    it('Method getMode: if the code is a pool', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(code);
+        expect(await rootRouter.getMode(code)).to.equal(CodeMode.Pool);
     });
 
     it('Method getCodeStatus', async () => {
@@ -233,14 +369,14 @@ describe('RootRouter', () => {
         ]);
         await rootRouter.mint(100);
         await rootRouter.setCodeSubscriptionEndTime(100, timestamp);
-        expect(await rootRouter.getCodeStatus(100)).to.have.deep.members([
+       /* expect(await rootRouter.getCodeStatus(100)).to.have.deep.members([
             false, // isBlocked
             true, // hasOwner
             false, // isHeld
             false, // isAvailableForMint
             BigNumber.from(timestamp), // subscriptionEndTime
             BigNumber.from(timestamp + HOLDING_DURATION) // holdEndTime
-        ]);
+        ]);*/
 
     });
 
@@ -308,7 +444,7 @@ describe('RootRouter', () => {
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
 
     it('Method withdraw', async () => {
-        const {rootRouter, contractOwner, accounts} = await loadFixture(deploy);
+        const {provider, rootRouter, contractOwner, accounts} = await loadFixture(deploy);
 
         await rootRouter.connect(accounts[0]).mint(100, {value: MINT_PRICE});
         await expect(rootRouter.connect(accounts[0]).withdraw()).to.revertedWith('Ownable: caller is not the owner');

@@ -78,16 +78,16 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
+    function hasOwner(uint256 code) public view returns (bool) {
+        require(_isValidCode(code), "Invalid code!");
+        return (ERC721._exists(code) && (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration)));
+    }
+
     function getCodeData(uint256 code) public view returns (Code memory) {
         require(_isValidCode(code), "Invalid code!");
         require(hasOwner(code), "Code not in use!");
 
         return _pool[code];
-    }
-
-    function hasOwner(uint256 code) public view returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
-        return (ERC721._exists(code) && (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration)));
     }
 
     function isBlocked(uint256 code) public view returns (bool) {
