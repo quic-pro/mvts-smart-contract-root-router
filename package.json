@@ -4,6 +4,7 @@
   "description": "Smart contract for decentralized phone numbering plan.",
   "scripts": {
     "lint": "hardhat check",
+    "postlint": "shx rm -rf ./storageLayout",
     "precompile": "shx rm -rf ./artifacts ./cache ./typechain-types",
     "compile": "hardhat compile",
     "pretest": "shx rm -rf ./artifacts ./cache ./typechain-types",

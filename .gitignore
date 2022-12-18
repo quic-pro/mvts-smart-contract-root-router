@@ -13,6 +13,7 @@
 /.env
 
 # Test
+/storageLayout
 /typechain-types
 /coverage
 /coverage.json

@@ -80,7 +80,7 @@ contract RootRouter is ERC721, Ownable {
 
     function hasOwner(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
-        return (ERC721._exists(code) && (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration)));
+        return (_exists(code) && (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration)));
     }
 
     function getCodeData(uint256 code) public view returns (Code memory) {
@@ -239,7 +239,7 @@ contract RootRouter is ERC721, Ownable {
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
 
     function withdraw() external onlyOwner {
-        address payableOwner = owner();
+        address payable payableOwner = payable(owner());
         payableOwner.transfer(address(this).balance);
     }
 
