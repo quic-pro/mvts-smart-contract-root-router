@@ -66,7 +66,7 @@ describe('RootRouter', () => {
         expect(actualCodeData.subscriptionEndTime).to.closeTo(expectedCodeData?.subscriptionEndTime ?? 0, 10);
         expect(actualCodeData.mode).to.equal(expectedCodeData?.mode ?? CodeMode.Number);
         expect(actualCodeData.sipDomain).to.equal(expectedCodeData?.sipDomain ?? '');
-        expect(actualCodeData.router).to.have.deep.members( [
+        expect(actualCodeData.router).to.have.deep.members([
             expectedCodeData?.router?.chainId ?? '',
             expectedCodeData?.router?.adr ?? '',
             expectedCodeData?.router?.poolCodeLength ?? ''
@@ -86,7 +86,6 @@ describe('RootRouter', () => {
     async function getEndTime(duration: number | InstanceType<typeof BigNumber>): Promise<InstanceType<typeof BigNumber>> {
         return BigNumber.from(await time.latest()).add(duration);
     }
-
 
 
     // ----- SETTINGS --------------------------------------------------------------------------------------------------
@@ -511,7 +510,7 @@ describe('RootRouter', () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newMintPrice = parseEther('5');
 
-        await expect(rootRouter.connect(owner).setMintPrice(newMintPrice)).to.not.reverted;
+        await expect(rootRouter.connect(owner).setMintPrice(newMintPrice)).not.to.be.reverted;
         expect(await rootRouter.mintPrice()).to.equal(newMintPrice);
     });
 
@@ -522,11 +521,11 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setSubscriptionPrice(newSubscriptionPrice)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setSubscriptionPrice', async () => {
+    it('Method setSubscriptionPrice: if the call is valid', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newSubscriptionPrice = parseEther('3');
 
-        await expect(rootRouter.connect(owner).setSubscriptionPrice(newSubscriptionPrice)).to.not.reverted;
+        await expect(rootRouter.connect(owner).setSubscriptionPrice(newSubscriptionPrice)).not.to.be.reverted;
         expect(await rootRouter.subscriptionPrice()).to.equal(newSubscriptionPrice);
     });
 
@@ -541,7 +540,7 @@ describe('RootRouter', () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newModeChangePrice = parseEther('3');
 
-        await expect(rootRouter.connect(owner).setModeChangePrice(newModeChangePrice)).to.not.reverted;
+        await expect(rootRouter.connect(owner).setModeChangePrice(newModeChangePrice)).not.to.be.reverted;
         expect(await rootRouter.modeChangePrice()).to.equal(newModeChangePrice);
     });
 
@@ -556,7 +555,7 @@ describe('RootRouter', () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newSubscriptionDuration = parseEther('3');
 
-        await expect(rootRouter.connect(owner).setSubscriptionDuration(newSubscriptionDuration)).to.not.reverted;
+        await expect(rootRouter.connect(owner).setSubscriptionDuration(newSubscriptionDuration)).not.to.be.reverted;
         expect(await rootRouter.subscriptionDuration()).to.equal(newSubscriptionDuration);
     });
 
@@ -571,7 +570,7 @@ describe('RootRouter', () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newHoldingDuration = parseEther('3');
 
-        await expect(rootRouter.connect(owner).setHoldingDuration(newHoldingDuration)).to.not.reverted;
+        await expect(rootRouter.connect(owner).setHoldingDuration(newHoldingDuration)).not.to.be.reverted;
         expect(await rootRouter.holdingDuration()).to.equal(newHoldingDuration);
     });
 
@@ -586,7 +585,7 @@ describe('RootRouter', () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newTtl = 3 * DAY;
 
-        await expect(rootRouter.connect(owner).setTtl(newTtl)).to.not.reverted;
+        await expect(rootRouter.connect(owner).setTtl(newTtl)).not.to.be.reverted;
         expect(await rootRouter.ttl()).to.equal(newTtl);
     });
 
@@ -601,7 +600,7 @@ describe('RootRouter', () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newDefaultSipDomain = 'sip.test';
 
-        await expect(rootRouter.connect(owner).setDefaultSipDomain(newDefaultSipDomain)).to.not.reverted;
+        await expect(rootRouter.connect(owner).setDefaultSipDomain(newDefaultSipDomain)).not.to.be.reverted;
         expect(await rootRouter.defaultSipDomain()).to.equal(newDefaultSipDomain);
     });
 
@@ -616,7 +615,7 @@ describe('RootRouter', () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newBaseUri = 'https://test.test/';
 
-        await expect(rootRouter.connect(owner).setBaseUri(newBaseUri)).to.not.reverted;
+        await expect(rootRouter.connect(owner).setBaseUri(newBaseUri)).not.to.be.reverted;
         expect(await rootRouter.baseUri()).to.equal(newBaseUri);
     });
 
@@ -638,10 +637,10 @@ describe('RootRouter', () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const code = 100, newBlockedStatus = true;
 
-        await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, newBlockedStatus)).to.not.reverted
+        await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, newBlockedStatus)).not.to.be.reverted
         expect(await rootRouter.isBlocked(code)).to.equal(newBlockedStatus);
 
-        await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, !newBlockedStatus)).to.not.reverted
+        await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, !newBlockedStatus)).not.to.be.reverted
         expect(await rootRouter.isBlocked(code)).to.equal(!newBlockedStatus);
     });
 
@@ -666,7 +665,7 @@ describe('RootRouter', () => {
         await rootRouter.mint(code);
 
         await rootRouter.connect(owner).setCodeSubscriptionEndTime(code, newSubscriptionEndTime);
-        expectCodeData(await rootRouter.getCodeData(code),{subscriptionEndTime: newSubscriptionEndTime});
+        expectCodeData(await rootRouter.getCodeData(code), {subscriptionEndTime: newSubscriptionEndTime});
     });
 
 
@@ -743,7 +742,7 @@ describe('RootRouter', () => {
         await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
 
         await expect(rootRouter.connect(client).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-        await expect(rootRouter.connect(owner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.not.reverted;
+        await expect(rootRouter.connect(owner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).not.to.be.reverted;
         expectCodeData(await rootRouter.getCodeData(code), {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION.mul(2))
         });
@@ -756,7 +755,7 @@ describe('RootRouter', () => {
         await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
 
         await expect(rootRouter.connect(codeOwner).renewSubscription(code, {value: Zero})).to.revertedWith(REASON_INSUFFICIENT_FUNDS);
-        await expect(rootRouter.connect(owner).renewSubscription(code, {value: Zero})).to.not.reverted;
+        await expect(rootRouter.connect(owner).renewSubscription(code, {value: Zero})).not.to.be.reverted;
         expectCodeData(await rootRouter.getCodeData(code), {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION.mul(2))
         });
@@ -768,7 +767,7 @@ describe('RootRouter', () => {
 
         await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
 
-        await expect(rootRouter.connect(codeOwner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.not.reverted;
+        await expect(rootRouter.connect(codeOwner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).not.to.be.reverted;
         expectCodeData(await rootRouter.getCodeData(code), {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION.mul(2))
         });
@@ -803,130 +802,295 @@ describe('RootRouter', () => {
             .and.changeTokenBalances(rootRouter, [pastCodeOwner, newCodeOwner], [-1, 1]);
     });
 
-    it('Method renounceOwnershipOfCode', async () => {
-    });
-    it('Method changeCodeMode', async () => {
-    });
-    it('Method setCodeSipDomain', async () => {
-        const {rootRouter, owner, accounts: [codeOwner, anotherClient]} = await loadFixture(deploy);
+    it('Method renounceOwnershipOfCode: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
 
-        const subscriptionEndTime = await time.latest() + DAY;
-
-        // If the code is missing from the pool:
-        await expect(rootRouter.setCodeSipDomain(POOL_SIZE, codeOwner.address)).to.revertedWith(REASON_INVALID_CODE);
-
-        // If not the owner of the code:
-        await expect(rootRouter.connect(anotherClient).setCodeSipDomain(100, anotherClient.address)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-        await rootRouter.connect(codeOwner).mint(100, {value: MINT_PRICE});
-        await expect(rootRouter.connect(anotherClient).setCodeSipDomain(100, anotherClient.address)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-
-        // If the owner of the code or contract:
-        expect(await rootRouter.connect(codeOwner).setCodeSipDomain(100, codeOwner.address));
-        expect((await rootRouter.connect(codeOwner).getCodeData(100)).sipDomain).to.equal(codeOwner.address);
-        expect(await rootRouter.connect(owner).setCodeSipDomain(100, owner.address));
-        expect((await rootRouter.connect(owner).getCodeData(100)).sipDomain).to.equal(owner.address);
-
-        // If the code is not a number:
-        await rootRouter.changeCodeMode(100);
-        await expect(rootRouter.connect(codeOwner).setCodeSipDomain(100, codeOwner.address)).to.revertedWith(REASON_INVALID_CODE_MODE);
-        await expect(rootRouter.connect(owner).setCodeSipDomain(100, owner.address)).to.revertedWith(REASON_INVALID_CODE_MODE);
-
-        // If the code is blocked:
-        await rootRouter.setCodeBlockedStatus(100, true);
-        await expect(rootRouter.connect(codeOwner).setCodeSipDomain(100, codeOwner.address)).to.revertedWith(REASON_CODE_BLOCKED);
-        await expect(rootRouter.connect(owner).setCodeSipDomain(100, owner.address)).to.revertedWith(REASON_CODE_BLOCKED);
+        await expect(rootRouter.renounceOwnershipOfCode(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
     });
 
-    it('Method clearCodeSipDomain', async () => {
-        const {rootRouter, owner, accounts: [codeOwner, anotherClient]} = await loadFixture(deploy);
+    it('Method renounceOwnershipOfCode: if insufficient rights', async () => {
+        const {rootRouter, owner, accounts: [codeOwner, client]} = await loadFixture(deploy);
+        const code = 100;
 
-        // If the code is missing from the pool:
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(client).renounceOwnershipOfCode(code)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner).renounceOwnershipOfCode(code))
+            .to.emit(rootRouter, 'Transfer').withArgs(codeOwner, AddressZero, code)
+            .and.changeTokenBalance(rootRouter, codeOwner, -1);
+    });
+
+    it('Method renounceOwnershipOfCode: if the call is valid', async () => {
+        const {rootRouter, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(codeOwner).renounceOwnershipOfCode(code))
+            .to.emit(rootRouter, 'Transfer').withArgs(codeOwner, AddressZero, code)
+            .and.changeTokenBalance(rootRouter, codeOwner, -1);
+    });
+
+    it('Method changeCodeMode: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+
+        await expect(rootRouter.changeCodeMode(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method changeCodeMode: if insufficient rights', async () => {
+        const {rootRouter, owner, accounts: [codeOwner, client]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(client).changeCodeMode(code, {value: MODE_CHANGE_PRICE})).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner).changeCodeMode(code, {value: MODE_CHANGE_PRICE})).not.to.be.reverted;
+        expect(await rootRouter.getMode(code)).to.equal(CodeMode.Pool);
+    });
+
+    it('Method changeCodeMode: if the call is valid', async () => {
+        const {rootRouter, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(codeOwner).changeCodeMode(code, {value: MODE_CHANGE_PRICE})).not.to.be.reverted;
+        expect(await rootRouter.getMode(code)).to.equal(CodeMode.Pool);
+    });
+
+    it('Method setCodeSipDomain: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const newSipDomain = 'test';
+
+        await expect(rootRouter.setCodeSipDomain(POOL_SIZE, newSipDomain)).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method setCodeSipDomain: if insufficient rights', async () => {
+        const {rootRouter, owner, accounts: [codeOwner, client]} = await loadFixture(deploy);
+        const code = 100, newSipDomain = 'test';
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(client).setCodeSipDomain(code, newSipDomain)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner).setCodeSipDomain(code, newSipDomain)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+            hasSipDomain: true,
+            sipDomain: newSipDomain
+        });
+    });
+
+    it('Method setCodeSipDomain: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100, newSipDomain = 'test';
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeBlockedStatus(code, true);
+
+        await expect(rootRouter.setCodeSipDomain(code, newSipDomain)).to.revertedWith(REASON_CODE_BLOCKED);
+    });
+
+    it('Method setCodeSipDomain: if the code mode is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100, newSipDomain = 'test';
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(code);
+
+        await expect(rootRouter.setCodeSipDomain(code, newSipDomain)).to.revertedWith(REASON_INVALID_CODE_MODE);
+    });
+
+    it('Method setCodeSipDomain: if the call is valid', async () => {
+        const {rootRouter, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100, newSipDomain = 'test';
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(codeOwner).setCodeSipDomain(code, newSipDomain)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+            hasSipDomain: true,
+            sipDomain: newSipDomain
+        });
+    });
+
+    it('Method clearCodeSipDomain: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+
         await expect(rootRouter.clearCodeSipDomain(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-
-        // If not the owner of the code:
-        await expect(rootRouter.connect(anotherClient).clearCodeSipDomain(100)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-        await rootRouter.connect(codeOwner).mint(100, {value: MINT_PRICE});
-        await expect(rootRouter.connect(anotherClient).clearCodeSipDomain(100)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-
-        // If the owner of the code or contract:
-        await rootRouter.connect(codeOwner).setCodeSipDomain(100, codeOwner.address)
-        expect(await rootRouter.connect(codeOwner).clearCodeSipDomain(100));
-        expect((await rootRouter.connect(codeOwner).getCodeData(100)).sipDomain).to.equal('');
-        await rootRouter.connect(owner).setCodeSipDomain(100, owner.address)
-        expect(await rootRouter.connect(owner).clearCodeSipDomain(100));
-        expect((await rootRouter.connect(owner).getCodeData(100)).sipDomain).to.equal('');
-
-        // If the code is not a number:
-        await rootRouter.changeCodeMode(100);
-        await expect(rootRouter.connect(codeOwner).clearCodeSipDomain(100)).to.revertedWith(REASON_INVALID_CODE_MODE);
-        await expect(rootRouter.connect(owner).clearCodeSipDomain(100)).to.revertedWith(REASON_INVALID_CODE_MODE);
-
-        // If the code is blocked:
-        await rootRouter.setCodeBlockedStatus(100, true);
-        await expect(rootRouter.connect(codeOwner).clearCodeSipDomain(100)).to.revertedWith(REASON_CODE_BLOCKED);
-        await expect(rootRouter.connect(owner).clearCodeSipDomain(100)).to.revertedWith(REASON_CODE_BLOCKED);
     });
 
-    it('Method setCodeRouter', async () => {
-        const {rootRouter, owner, accounts: [codeOwner, anotherClient]} = await loadFixture(deploy);
+    it('Method clearCodeSipDomain: if insufficient rights', async () => {
+        const {rootRouter, owner, accounts: [codeOwner, client]} = await loadFixture(deploy);
+        const code = 100, newSipDomain = 'test';
 
-        const subscriptionEndTime = await time.latest() + DAY;
-        const newChainId = 1;
-        const newAddress = 'test';
-        const newPoolCodeLength = 3;
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+        await rootRouter.setCodeSipDomain(code, newSipDomain);
 
-        // If the code is missing from the pool:
+        await expect(rootRouter.connect(client).clearCodeSipDomain(code)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner).clearCodeSipDomain(code)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+        });
+    });
+
+    it('Method clearCodeSipDomain: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeBlockedStatus(code, true);
+
+        await expect(rootRouter.clearCodeSipDomain(code)).to.revertedWith(REASON_CODE_BLOCKED);
+    });
+
+    it('Method clearCodeSipDomain: if the code mode is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(code);
+
+        await expect(rootRouter.clearCodeSipDomain(code)).to.revertedWith(REASON_INVALID_CODE_MODE);
+    });
+
+    it('Method clearCodeSipDomain: if the call is valid', async () => {
+        const {rootRouter, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100, newSipDomain = 'test';
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+        await rootRouter.connect(codeOwner).setCodeSipDomain(code, newSipDomain);
+
+        await expect(rootRouter.connect(codeOwner).clearCodeSipDomain(code)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+        });
+    });
+
+    it('Method setCodeRouter: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const newChainId = 1, newAddress = AddressZero, newPoolCodeLength = 3;
+
         await expect(rootRouter.setCodeRouter(POOL_SIZE, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_INVALID_CODE);
-
-        // If not the owner of the code:
-        await expect(rootRouter.connect(anotherClient).setCodeRouter(100, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-        await rootRouter.connect(codeOwner).mint(100, {value: MINT_PRICE});
-        await expect(rootRouter.connect(anotherClient).setCodeRouter(100, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-
-        // If the code is not a pool:
-        await expect(rootRouter.connect(codeOwner).setCodeRouter(100, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_INVALID_CODE_MODE);
-        await expect(rootRouter.connect(owner).setCodeRouter(100, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_INVALID_CODE_MODE);
-
-        // If the owner of the code or contract:
-        await rootRouter.changeCodeMode(100);
-        expect(await rootRouter.connect(codeOwner).setCodeRouter(100, newChainId, newAddress, newPoolCodeLength));
-        await rootRouter.setCodeSubscriptionEndTime(100, subscriptionEndTime);
-        expect(await rootRouter.getCodeData(100)).to.have.deep.members([
-            false, // isBlocked
-            false, // hasSipDomain
-            true, // hasRouter
-            BigNumber.from(subscriptionEndTime), // subscriptionEndTime
-            CodeMode.Pool, // mode
-            '', // sipDomain
-            [ // router
-                newChainId.toString(), // chainId
-                newAddress, // adr
-                newPoolCodeLength.toString() // poolCodeLength
-            ]
-        ]);
-        expect(await rootRouter.connect(owner).setCodeRouter(100, newChainId, newAddress, newPoolCodeLength));
-        await rootRouter.setCodeSubscriptionEndTime(100, subscriptionEndTime);
-        expect(await rootRouter.getCodeData(100)).to.have.deep.members([
-            false, // isBlocked
-            false, // hasSipDomain
-            true, // hasRouter
-            BigNumber.from(subscriptionEndTime), // subscriptionEndTime
-            CodeMode.Pool, // mode
-            '', // sipDomain
-            [ // router
-                newChainId.toString(), // chainId
-                newAddress, // adr
-                newPoolCodeLength.toString() // poolCodeLength
-            ]
-        ]);
-
-        // If the code is blocked:
-        await rootRouter.connect(owner).setCodeBlockedStatus(100, true);
-        await expect(rootRouter.connect(codeOwner).setCodeRouter(100, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_CODE_BLOCKED);
-        await expect(rootRouter.connect(owner).setCodeRouter(100, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_CODE_BLOCKED);
     });
 
-    it('Method clearCodeRouter', async () => {
+    it('Method setCodeRouter: if insufficient rights', async () => {
+        const {rootRouter, owner, accounts: [codeOwner, client]} = await loadFixture(deploy);
+        const code = 100, newChainId = 1, newAddress = AddressZero, newPoolCodeLength = 3;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+        await rootRouter.changeCodeMode(code);
+
+        await expect(rootRouter.connect(client).setCodeRouter(code, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner).setCodeRouter(code, newChainId, newAddress, newPoolCodeLength)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+            mode: CodeMode.Pool,
+            hasRouter: true,
+            // @ts-ignore
+            router: {
+                chainId: newChainId.toString(),
+                adr: newAddress,
+                poolCodeLength: newPoolCodeLength.toString()
+            }
+        });
+    });
+
+    it('Method setCodeRouter: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100, newChainId = 1, newAddress = AddressZero, newPoolCodeLength = 3;
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(code);
+        await rootRouter.setCodeBlockedStatus(code, true);
+
+        await expect(rootRouter.setCodeRouter(code, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_CODE_BLOCKED);
+    });
+
+    it('Method setCodeRouter: if the code mode is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100, newChainId = 1, newAddress = AddressZero, newPoolCodeLength = 3;
+
+        await rootRouter.mint(code);
+
+        await expect(rootRouter.setCodeRouter(code, newChainId, newAddress, newPoolCodeLength)).to.revertedWith(REASON_INVALID_CODE_MODE);
+    });
+
+    it('Method setCodeRouter: if the call is valid', async () => {
+        const {rootRouter, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100, newChainId = 1, newAddress = AddressZero, newPoolCodeLength = 3;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+        await rootRouter.changeCodeMode(code);
+
+        await expect(rootRouter.connect(codeOwner).setCodeRouter(code, newChainId, newAddress, newPoolCodeLength)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+            mode: CodeMode.Pool,
+            hasRouter: true,
+            // @ts-ignore
+            router: {
+                chainId: newChainId.toString(),
+                adr: newAddress,
+                poolCodeLength: newPoolCodeLength.toString()
+            }
+        });
+    });
+
+    it('Method clearCodeRouter: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+
+        await expect(rootRouter.clearCodeRouter(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method clearCodeRouter: if insufficient rights', async () => {
+        const {rootRouter, owner, accounts: [codeOwner, client]} = await loadFixture(deploy);
+        const code = 100, newChainId = 1, newAddress = AddressZero, newPoolCodeLength = 3;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+        await rootRouter.changeCodeMode(code);
+        await rootRouter.setCodeRouter(code, newChainId, newAddress, newPoolCodeLength);
+
+        await expect(rootRouter.connect(client).clearCodeRouter(code)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner).clearCodeRouter(code)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+            mode: CodeMode.Pool
+        });
+    });
+
+    it('Method clearCodeRouter: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeBlockedStatus(code, true);
+
+        await expect(rootRouter.clearCodeRouter(code)).to.revertedWith(REASON_CODE_BLOCKED);
+    });
+
+    it('Method clearCodeRouter: if the code mode is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+
+        await expect(rootRouter.clearCodeRouter(code)).to.revertedWith(REASON_INVALID_CODE_MODE);
+    });
+
+    it('Method clearCodeRouter: if the call is valid', async () => {
+        const {rootRouter, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100, newChainId = 1, newAddress = AddressZero, newPoolCodeLength = 3;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+        await rootRouter.changeCodeMode(code);
+        await rootRouter.setCodeRouter(code, newChainId, newAddress, newPoolCodeLength);
+
+        await expect(rootRouter.connect(codeOwner).clearCodeRouter(code)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+            mode: CodeMode.Pool
+        });
     });
 
 
