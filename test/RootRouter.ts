@@ -8,6 +8,7 @@ import {DAY, YEAR} from './constants';
 
 const {BigNumber} = ethers;
 const {parseEther} = ethers.utils;
+const {Zero, AddressZero} = ethers.constants;
 
 
 const enum CodeMode {
@@ -493,15 +494,10 @@ describe('RootRouter', () => {
     it('Method withdraw: if caller is owner', async () => {
         const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
         const code = 100;
-        const contractOwnerBalance = await owner.getBalance();
 
         await rootRouter.connect(client).mint(code, {value: MINT_PRICE});
 
-        const tx = await rootRouter.withdraw();
-        const receipt = await tx.wait();
-        const gasSpent = receipt.gasUsed.mul(receipt.effectiveGasPrice);
-
-        expect(await owner.getBalance()).to.equal(contractOwnerBalance.add(MINT_PRICE).sub(gasSpent))
+        await expect(rootRouter.withdraw()).to.changeEtherBalances([rootRouter, owner], [MINT_PRICE.mul(-1), MINT_PRICE]);
     });
 
     it('Method setMintPrice: if caller is not the owner', async () => {
@@ -670,92 +666,143 @@ describe('RootRouter', () => {
         await rootRouter.mint(code);
 
         await rootRouter.connect(owner).setCodeSubscriptionEndTime(code, newSubscriptionEndTime);
-        await expectCodeData(await rootRouter.getCodeData(code),{subscriptionEndTime: newSubscriptionEndTime});
+        expectCodeData(await rootRouter.getCodeData(code),{subscriptionEndTime: newSubscriptionEndTime});
     });
 
 
     // ----- CODE MANAGEMENT -------------------------------------------------------------------------------------------
 
     it('Method mint: if code is invalid', async () => {
-        const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
-        const code = POOL_SIZE;
+        const {rootRouter} = await loadFixture(deploy);
 
-        await expect(rootRouter.connect(owner).mint(code, {value: MINT_PRICE})).to.revertedWith(REASON_INVALID_CODE);
-        await expect(rootRouter.connect(client).mint(code, {value: MINT_PRICE})).to.revertedWith(REASON_INVALID_CODE);
+        await expect(rootRouter.mint(POOL_SIZE, {value: MINT_PRICE})).to.revertedWith(REASON_INVALID_CODE);
     });
 
-    it('Method mint: if the code is not available for minting', async () => {
-        const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
+    it('Method mint: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
         const code = 100;
 
         await rootRouter.setCodeBlockedStatus(code, true);
-        await expect(rootRouter.connect(client).mint(code, {value: MINT_PRICE})).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
-        await expect(rootRouter.connect(owner).mint(code, {value: MINT_PRICE})).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
-        await rootRouter.setCodeBlockedStatus(code, false);
+        await expect(rootRouter.mint(code)).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
+    });
+
+    it('Method mint: if the code has an owner', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
 
         await rootRouter.mint(code);
-        await expect(rootRouter.connect(client).mint(code, {value: MINT_PRICE})).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
-        await expect(rootRouter.connect(owner).mint(code, {value: MINT_PRICE})).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
+        await expect(rootRouter.mint(code)).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
+    });
+
+    it('Method mint: if the code is blocked and has an owner', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeBlockedStatus(code, true);
+        await expect(rootRouter.mint(code)).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
     });
 
     it('Method mint: if insufficient funds', async () => {
         const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
         const code = 100;
 
-        await expect(rootRouter.connect(client).mint(code, {value: BigNumber.from(0)})).to.revertedWith(REASON_INSUFFICIENT_FUNDS);
-        expect(await rootRouter.connect(owner).mint(code, {value: BigNumber.from(0)})).to.changeTokenBalance(rootRouter, owner, 1);
+        await expect(rootRouter.connect(client).mint(code, {value: Zero})).to.revertedWith(REASON_INSUFFICIENT_FUNDS);
+        expect(await rootRouter.connect(owner).mint(code, {value: Zero})).to.changeTokenBalance(rootRouter, owner, 1);
     });
 
-    it('Method mint: minting with cleaning of code data after the previous owner', async () => {
-        const {rootRouter, accounts: [client1, client2]} = await loadFixture(deploy);
+    it('Method mint: if the code was previously used', async () => {
+        const {rootRouter, accounts: [pastCodeOwner, newCodeOwner]} = await loadFixture(deploy);
         const code = 100;
 
-        await rootRouter.connect(client1).mint(code, {value: MINT_PRICE});
-        await rootRouter.connect(client1).changeCodeMode(code, {value: MODE_CHANGE_PRICE});
+        await expect(rootRouter.connect(pastCodeOwner).mint(code, {value: MINT_PRICE}))
+            .to.emit(rootRouter, 'Transfer').withArgs(AddressZero, pastCodeOwner, code)
+            .and.changeTokenBalance(rootRouter, pastCodeOwner, 1);
+
+        await rootRouter.connect(pastCodeOwner).setCodeSipDomain(code, 'sip.test');
         await rootRouter.setCodeSubscriptionEndTime(code, 0);
 
-        expect(await rootRouter.connect(client2).mint(code, {value: MINT_PRICE})).to.changeTokenBalances(rootRouter, [client1, client2], [-1, 1]);
-        expectCodeData(await rootRouter.getCodeData(code), {subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION)});
+        await expect(rootRouter.connect(newCodeOwner).mint(code, {value: MINT_PRICE}))
+            .to.emit(rootRouter, 'Transfer').withArgs(pastCodeOwner, newCodeOwner, code)
+            .and.changeTokenBalances(rootRouter, [pastCodeOwner, newCodeOwner], [-1, 1]);
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION)
+        });
     });
 
     it('Method renewSubscription: if code is invalid', async () => {
-        const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
-        const code = POOL_SIZE;
+        const {rootRouter} = await loadFixture(deploy);
 
-        await expect(rootRouter.connect(owner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.revertedWith(REASON_INVALID_CODE);
-        await expect(rootRouter.connect(client).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.revertedWith(REASON_INVALID_CODE);
+        await expect(rootRouter.renewSubscription(POOL_SIZE, {value: SUBSCRIPTION_PRICE})).to.revertedWith(REASON_INVALID_CODE);
     });
 
     it('Method renewSubscription: if insufficient rights', async () => {
-        const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
+        const {rootRouter, owner, accounts: [codeOwner, client]} = await loadFixture(deploy);
         const code = 100;
 
-        await expect(rootRouter.connect(owner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.not.reverted;
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
         await expect(rootRouter.connect(client).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-    });
-
-    it('Method renewSubscription: if insufficient funds', async () => {
-        const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
-        const code = 100;
-
-        await rootRouter.connect(client).mint(code, {value: MINT_PRICE});
-        await expect(rootRouter.connect(owner).renewSubscription(code, {value: BigNumber.from(0)})).to.not.reverted;
-        await expect(rootRouter.connect(client).renewSubscription(code, {value: BigNumber.from(0)})).to.revertedWith(REASON_INSUFFICIENT_FUNDS);
-    });
-
-    it('Method renewSubscription: successful', async () => {
-        const {rootRouter, owner} = await loadFixture(deploy);
-        const code = 100;
-
-        await rootRouter.connect(owner).mint(code, {value: MINT_PRICE});
         await expect(rootRouter.connect(owner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.not.reverted;
         expectCodeData(await rootRouter.getCodeData(code), {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION.mul(2))
         });
     });
 
-    it('Method transferOwnershipOfCode', async () => {
+    it('Method renewSubscription: if insufficient funds', async () => {
+        const {rootRouter, owner, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(codeOwner).renewSubscription(code, {value: Zero})).to.revertedWith(REASON_INSUFFICIENT_FUNDS);
+        await expect(rootRouter.connect(owner).renewSubscription(code, {value: Zero})).to.not.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION.mul(2))
+        });
     });
+
+    it('Method renewSubscription: if the call is valid', async () => {
+        const {rootRouter, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(codeOwner).renewSubscription(code, {value: SUBSCRIPTION_PRICE})).to.not.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION.mul(2))
+        });
+    });
+
+    it('Method transferOwnershipOfCode: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+
+        await expect(rootRouter.transferOwnershipOfCode(POOL_SIZE, AddressZero)).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method transferOwnershipOfCode: if insufficient rights', async () => {
+        const {rootRouter, owner, accounts: [pastCodeOwner, newCodeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(pastCodeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(newCodeOwner).transferOwnershipOfCode(code, AddressZero)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner).transferOwnershipOfCode(code, newCodeOwner.address))
+            .to.emit(rootRouter, 'Transfer').withArgs(pastCodeOwner, newCodeOwner, code)
+            .and.changeTokenBalances(rootRouter, [pastCodeOwner, newCodeOwner], [-1, 1]);
+    });
+
+    it('Method transferOwnershipOfCode: if the call is valid', async () => {
+        const {rootRouter, accounts: [pastCodeOwner, newCodeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(pastCodeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(pastCodeOwner).transferOwnershipOfCode(code, newCodeOwner.address))
+            .to.emit(rootRouter, 'Transfer').withArgs(pastCodeOwner, newCodeOwner, code)
+            .and.changeTokenBalances(rootRouter, [pastCodeOwner, newCodeOwner], [-1, 1]);
+    });
+
     it('Method renounceOwnershipOfCode', async () => {
     });
     it('Method changeCodeMode', async () => {
