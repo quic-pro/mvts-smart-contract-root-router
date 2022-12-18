@@ -201,7 +201,7 @@ contract RootRouter is ERC721, Ownable {
     function _isOwner(uint256 code, address adr) internal view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return (
-            (ERC721._ownerOf(code) == adr) &&
+            (_ownerOf(code) == adr) &&
             (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration))
         );
     }
@@ -239,7 +239,8 @@ contract RootRouter is ERC721, Ownable {
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
 
     function withdraw() external onlyOwner {
-        payable(owner()).transfer(address(this).balance);
+        address payableOwner = owner();
+        payableOwner.transfer(address(this).balance);
     }
 
     function setMintPrice(uint256 newMintPrice) external onlyOwner {
@@ -293,10 +294,10 @@ contract RootRouter is ERC721, Ownable {
         require(isAvailableForMint(code), "Not available for minting!");
         require(_checkPayment(mintPrice, msg.value), "Insufficient funds!");
 
-        if (ERC721._exists(code)) {
-            ERC721._burn(code);
+        if (_exists(code)) {
+            _burn(code);
         }
-        ERC721._safeMint(msg.sender, code);
+        _safeMint(msg.sender, code);
 
         delete _pool[code];
         _pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
@@ -314,14 +315,14 @@ contract RootRouter is ERC721, Ownable {
         require(_isValidCode(code), "Invalid code!");
         require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
 
-        ERC721._transfer(msg.sender, newOwner, code);
+        _transfer(msg.sender, newOwner, code);
     }
 
     function renounceOwnershipOfCode(uint256 code) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isOwner(code, msg.sender) || (msg.sender == owner()), "Insufficient rights!");
 
-        ERC721._burn(code);
+        _burn(code);
         delete _pool[code];
     }
 
@@ -390,7 +391,7 @@ contract RootRouter is ERC721, Ownable {
             return [
                 "200", // Response code
                 "0", // Pool code length
-                Strings.toHexString(ERC721._ownerOf(code)),
+                Strings.toHexString(_ownerOf(code)),
                 (_pool[code].hasSipDomain ? _pool[code].sipDomain : defaultSipDomain),
                 Strings.toString(ttl)
             ];

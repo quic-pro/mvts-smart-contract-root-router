@@ -23,6 +23,7 @@ GETBLOCK_BSC_MAINNET_API_KEY=<string, optional>
 ETHERSCAN_API_KEY=<string, optional>
 POLYGONSCAN_API_KEY=<string, optional>
 BSCSCAN_API_KEY=<string, optional>
+COIN_MARKET_CAP_API_KEY=<string, optional>
 ```
 
 ***

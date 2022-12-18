@@ -1,8 +1,13 @@
-import {HardhatUserConfig} from 'hardhat/config';
-import '@nomicfoundation/hardhat-toolbox';
 import 'dotenv/config';
 import {cleanEnv, str} from 'envalid';
 
+import {HardhatUserConfig} from 'hardhat/config';
+
+import '@nomicfoundation/hardhat-toolbox';
+
+import '@nomiclabs/hardhat-solhint';
+import 'hardhat-gas-reporter';
+import 'hardhat-storage-layout';
 
 const env = cleanEnv(process.env, {
     PRIVATE_KEY: str(),
@@ -14,12 +19,13 @@ const env = cleanEnv(process.env, {
     GETBLOCK_BSC_MAINNET_API_KEY: str({default: ''}),
     ETHERSCAN_API_KEY: str({default: ''}),
     POLYGONSCAN_API_KEY: str({default: ''}),
-    BSCSCAN_API_KEY: str({default: ''})
+    BSCSCAN_API_KEY: str({default: ''}),
+    COIN_MARKET_CAP_API_KEY: str({default: ''})
 });
 
 
 const DefaultNetworkConfig = {
-    accounts: [`0x${env.PRIVATE_KEY}`],
+    accounts: [`0x${env.PRIVATE_KEY}`]
 };
 
 
@@ -38,6 +44,11 @@ const config: HardhatUserConfig = {
         artifacts: './artifacts',
         sources: './contracts',
         tests: './test'
+    },
+    gasReporter: {
+        enabled: true,
+        excludeContracts: ['Migrations.sol'],
+        coinmarketcap: env.COIN_MARKET_CAP_API_KEY
     },
     networks: {
         'eth-sepolia': Object.assign({

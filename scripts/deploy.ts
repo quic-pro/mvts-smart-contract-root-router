@@ -1,7 +1,9 @@
-import {ethers} from 'hardhat';
+import hardhat, {ethers} from 'hardhat';
 
 
 async function main() {
+    await hardhat.storageLayout.export();
+
     const RootRouter = await ethers.getContractFactory('RootRouter');
     const rootRouter = await RootRouter.deploy();
 
