@@ -199,7 +199,6 @@ contract RootRouter is ERC721, Ownable {
     }
 
     function _isApprovedOrOwner(address adr, uint256 code) internal view override returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
         return (
             _exists(code) && ERC721._isApprovedOrOwner(adr, code) &&
             (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration))

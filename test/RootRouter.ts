@@ -131,6 +131,17 @@ describe('RootRouter', () => {
     });
 
 
+    // ----- ERC721 ----------------------------------------------------------------------------------------------------
+
+    it('Method ERC721.tokenURI', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        expect(await rootRouter.tokenURI(code)).to.equal(BASE_URI + code);
+    });
+
+
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
     it('Method hasOwner: if code is invalid', async () => {
@@ -848,14 +859,35 @@ describe('RootRouter', () => {
         expect(await rootRouter.getMode(code)).to.equal(CodeMode.Pool);
     });
 
+    it('Method changeCodeMode: if insufficient funds', async () => {
+        const {rootRouter, owner, accounts: [codeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(codeOwner).changeCodeMode(code, {value: Zero})).to.revertedWith(REASON_INSUFFICIENT_FUNDS);
+        expect(await rootRouter.connect(owner).changeCodeMode(code, {value: Zero})).not.to.reverted;
+    });
+
     it('Method changeCodeMode: if the call is valid', async () => {
         const {rootRouter, accounts: [codeOwner]} = await loadFixture(deploy);
         const code = 100;
 
         await rootRouter.connect(codeOwner).mint(code, {value: MINT_PRICE});
+        await rootRouter.setCodeSipDomain(code, 'sip.test');
 
         await expect(rootRouter.connect(codeOwner).changeCodeMode(code, {value: MODE_CHANGE_PRICE})).not.to.be.reverted;
-        expect(await rootRouter.getMode(code)).to.equal(CodeMode.Pool);
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
+            mode: CodeMode.Pool
+        });
+
+        await rootRouter.setCodeRouter(code, 1, AddressZero, 3);
+
+        await expect(rootRouter.connect(codeOwner).changeCodeMode(code, {value: MODE_CHANGE_PRICE})).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION)
+        });
     });
 
     it('Method setCodeSipDomain: if code is invalid', async () => {
@@ -1095,4 +1127,77 @@ describe('RootRouter', () => {
 
 
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
+
+    it('Method getNextNode: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+
+        expect(await rootRouter.getNextNode(POOL_SIZE)).to.deep.equal(['400', '', '', '', TTL.toString()]);
+    });
+
+    it('Method getNextNode: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeBlockedStatus(code, true);
+
+        expect(await rootRouter.getNextNode(code)).to.deep.equal(['400', '', '', '', TTL.toString()]);
+    });
+
+    it('Method getNextNode: if the code not in use', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        expect(await rootRouter.getNextNode(code)).to.deep.equal(['400', '', '', '', TTL.toString()]);
+    });
+
+    it('Method getNextNode: if the code is held', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeSubscriptionEndTime(code, await getEndTime(0));
+
+        expect(await rootRouter.getNextNode(code)).to.deep.equal(['400', '', '', '', TTL.toString()]);
+    });
+
+    it('Method getNextNode: if the code is a number with default sip domain', async () => {
+        const {rootRouter, owner} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+
+        expect(await rootRouter.getNextNode(code)).to.deep.equal(['200', '0', owner.address, DEFAULT_SIP_DOMAIN, TTL.toString()]);
+    });
+
+    it('Method getNextNode: if the code is a number with custom sip domain', async () => {
+        const {rootRouter, owner} = await loadFixture(deploy);
+        const code = 100, newSipDomain = 'sip.test';
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeSipDomain(code, newSipDomain)
+
+        expect(await rootRouter.getNextNode(code)).to.deep.equal(['200', '0', owner.address, newSipDomain, TTL.toString()]);
+    });
+
+    it('Method getNextNode: if the code is a pool without router', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(code);
+
+        expect(await rootRouter.getNextNode(code)).to.deep.equal(['400', '0', '', '', TTL.toString()]);
+    });
+
+    it('Method getNextNode: if the code is a pool with router', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100, newChainId = 1, newAddress = rootRouter.address, newPoolCodeLength = 3;;
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(code);
+        await rootRouter.setCodeRouter(code, newChainId, newAddress, newPoolCodeLength);
+
+        expect(await rootRouter.getNextNode(code)).to.deep.equal(['200', newPoolCodeLength.toString(), newChainId.toString(), newAddress, TTL.toString()]);
+    });
 });
