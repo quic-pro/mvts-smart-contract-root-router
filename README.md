@@ -28,9 +28,9 @@ COIN_MARKET_CAP_API_KEY=<string, optional>
 
 ***
 
-### Test contracts
+### Test contract
 
-`yarn test`
+`yarn test` or `yarn coverage`
 
 ***
 
@@ -44,16 +44,6 @@ Binance Smart Chain: `yarn deploy:bsc-testnet`
 
 ***
 
-### Verify contract in testnet
-
-Ethereum (Sepolia): `yarn verify:eth-sepolia`
-
-Polygon (Mumbai): `yarn verify:polygon-mumbai`
-
-Binance Smart Chain: `yarn verify:bsc-testnet`
-
-***
-
 ### Deploy contract in mainnet
 
 Ethereum: `yarn deploy:eth-mainnet`
@@ -61,13 +51,3 @@ Ethereum: `yarn deploy:eth-mainnet`
 Polygon: `yarn deploy:polygon-mainnet`
 
 Binance Smart Chain: `yarn deploy:bsc-mainnet`
-
-***
-
-### Verify contract in mainnet
-
-Ethereum: `yarn verify:eth-mainnet`
-
-Polygon: `yarn verify:polygon-mainnet`
-
-Binance Smart Chain: `yarn verify:bsc-mainnet`

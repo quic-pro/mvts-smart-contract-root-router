@@ -17,12 +17,6 @@
     "deploy:polygon-mainnet": "hardhat run scripts/deploy.ts --network polygon-mainnet",
     "deploy:bsc-testnet": "hardhat run scripts/deploy.ts --network bsc-testnet",
     "deploy:bsc-mainnet": "hardhat run scripts/deploy.ts --network bsc-mainnet",
-    "verify:eth-sepolia": "hardhat verify RootRouter --network eth-sepolia",
-    "verify:eth-mainnet": "hardhat verify RootRouter --network eth-mainnet",
-    "verify:polygon-mumbai": "hardhat verify RootRouter --network polygon-mumbai",
-    "verify:polygon-mainnet": "hardhat verify RootRouter --network polygon-mainnet",
-    "verify:bsc-testnet": "hardhat verify RootRouter --network bsc-testnet",
-    "verify:bsc-mainnet": "hardhat verify RootRouter --network bsc-mainnet"
   },
   "author": {
     "name": "Sergey Bondarenko QUIC-PRO Inc. developer",
