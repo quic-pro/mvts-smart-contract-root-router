@@ -357,13 +357,13 @@ contract RootRouter is ERC721, Ownable {
         _clearCodeSipDomain(code);
     }
 
-    function setCodeRouter(uint256 code, uint256 newChainId, string memory newAddress, uint256 newPoolCodeLength) external {
+    function setCodeRouter(uint256 code, uint256 newChainId, string memory newAdr, uint256 newPoolCodeLength) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
         require(!isBlocked(code), "Code blocked!");
         require(isPoolMode(code), "Invalid code mode!");
 
-        Router memory newRouter = Router(Strings.toString(newChainId), newAddress, Strings.toString(newPoolCodeLength));
+        Router memory newRouter = Router(Strings.toString(newChainId), newAdr, Strings.toString(newPoolCodeLength));
         _setCodeRouter(code, newRouter);
     }
 

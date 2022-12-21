@@ -16,7 +16,7 @@
     "deploy:polygon-mumbai": "hardhat run scripts/deploy.ts --network polygon-mumbai",
     "deploy:polygon-mainnet": "hardhat run scripts/deploy.ts --network polygon-mainnet",
     "deploy:bsc-testnet": "hardhat run scripts/deploy.ts --network bsc-testnet",
-    "deploy:bsc-mainnet": "hardhat run scripts/deploy.ts --network bsc-mainnet",
+    "deploy:bsc-mainnet": "hardhat run scripts/deploy.ts --network bsc-mainnet"
   },
   "author": {
     "name": "Sergey Bondarenko QUIC-PRO Inc. developer",
