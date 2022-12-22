@@ -27,6 +27,7 @@ describe('RootRouter', () => {
     const TTL = BigNumber.from(10 * DAY);
     const BASE_URI = 'https://mvts-metadata.io/';
     const DEFAULT_SIP_DOMAIN = 'sip.quic.pro';
+    const VERIFICATION_OPERATOR = AddressZero;
 
     // Data
     const NAME = 'MetaVerse Telecom Service';
@@ -59,8 +60,9 @@ describe('RootRouter', () => {
     }
 
     function expectCodeData(actualCodeData: RootRouter.CodeStructOutput, expectedCodeData?: Partial<RootRouter.CodeStructOutput>) {
-        expect(actualCodeData).to.length(7);
+        expect(actualCodeData).to.length(8);
         expect(actualCodeData.isBlocked).to.equal(expectedCodeData?.isBlocked ?? false);
+        expect(actualCodeData.isVerified).to.equal(expectedCodeData?.isBlocked ?? false);
         expect(actualCodeData.hasSipDomain).to.equal(expectedCodeData?.hasSipDomain ?? false);
         expect(actualCodeData.hasRouter).to.equal(expectedCodeData?.hasRouter ?? false);
         expect(actualCodeData.subscriptionEndTime).to.closeTo(expectedCodeData?.subscriptionEndTime ?? 0, 10);
@@ -102,6 +104,7 @@ describe('RootRouter', () => {
         expect(await rootRouter.ttl()).to.equal(TTL);
         expect(await rootRouter.baseUri()).to.equal(BASE_URI);
         expect(await rootRouter.defaultSipDomain()).to.equal(DEFAULT_SIP_DOMAIN);
+        expect(await rootRouter.verificationOperator()).to.equal(VERIFICATION_OPERATOR);
     });
 
 
@@ -225,6 +228,27 @@ describe('RootRouter', () => {
 
         await rootRouter.setCodeBlockedStatus(code, true);
         expect(await rootRouter.isBlocked(code)).to.true;
+    });
+
+    it('Method isVerified: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+
+        await expect(rootRouter.isVerified(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method isVerified: if the code is not blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        expect(await rootRouter.isVerified(code)).to.false;
+    });
+
+    it('Method isVerified: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.setCodeVerifiedStatus(code, true);
+        expect(await rootRouter.isVerified(code)).to.true;
     });
 
     it('Method isHeld: if code is invalid', async () => {
@@ -630,6 +654,21 @@ describe('RootRouter', () => {
         expect(await rootRouter.baseUri()).to.equal(newBaseUri);
     });
 
+    it('Method setVerificationOperator: if caller is not the owner', async () => {
+        const {rootRouter, accounts: [client]} = await loadFixture(deploy);
+        const newVerificationOperator = client.address;
+
+        await expect(rootRouter.connect(client).setVerificationOperator(newVerificationOperator)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
+    });
+
+    it('Method setVerificationOperator: if caller is owner', async () => {
+        const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
+        const newVerificationOperator = client.address;
+
+        await expect(rootRouter.connect(owner).setVerificationOperator(newVerificationOperator)).not.to.be.reverted;
+        expect(await rootRouter.verificationOperator()).to.equal(newVerificationOperator);
+    });
+
     it('Method setCodeBlockedStatus: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
         const newBlockedStatus = true;
@@ -653,6 +692,44 @@ describe('RootRouter', () => {
 
         await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, !newBlockedStatus)).not.to.be.reverted
         expect(await rootRouter.isBlocked(code)).to.equal(!newBlockedStatus);
+    });
+
+    it('Method setCodeVerifiedStatus: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const newVerifiedStatus = true;
+
+        await expect(rootRouter.setCodeVerifiedStatus(POOL_SIZE, newVerifiedStatus)).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method setCodeVerifiedStatus: if caller is not the owner', async () => {
+        const {rootRouter, accounts: [client]} = await loadFixture(deploy);
+        const code = 100, newVerifiedStatus = true;
+
+        await expect(rootRouter.connect(client).setCodeVerifiedStatus(code, newVerifiedStatus)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+    });
+
+    it('Method setCodeVerifiedStatus: if caller is owner', async () => {
+        const {rootRouter, owner} = await loadFixture(deploy);
+        const code = 100, newVerifiedStatus = true;
+
+        await expect(rootRouter.connect(owner).setCodeVerifiedStatus(code, newVerifiedStatus)).not.to.be.reverted
+        expect(await rootRouter.isVerified(code)).to.equal(newVerifiedStatus);
+
+        await expect(rootRouter.connect(owner).setCodeVerifiedStatus(code, !newVerifiedStatus)).not.to.be.reverted
+        expect(await rootRouter.isVerified(code)).to.equal(!newVerifiedStatus);
+    });
+
+    it('Method setCodeVerifiedStatus: if caller is verification operator', async () => {
+        const {rootRouter, owner, accounts: [verificationOperator]} = await loadFixture(deploy);
+        const code = 100, newVerifiedStatus = true;
+
+        await rootRouter.setVerificationOperator(verificationOperator.address);
+
+        await expect(rootRouter.connect(verificationOperator).setCodeVerifiedStatus(code, newVerifiedStatus)).not.to.be.reverted
+        expect(await rootRouter.isVerified(code)).to.equal(newVerifiedStatus);
+
+        await expect(rootRouter.connect(verificationOperator).setCodeVerifiedStatus(code, !newVerifiedStatus)).not.to.be.reverted
+        expect(await rootRouter.isVerified(code)).to.equal(!newVerifiedStatus);
     });
 
     it('Method setCodeSubscriptionEndTime: if code is invalid', async () => {
@@ -784,31 +861,60 @@ describe('RootRouter', () => {
         });
     });
 
-    it('Method transferOwnershipOfCode: if code is invalid', async () => {
+    it('Method transferFrom: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
-        await expect(rootRouter.transferOwnershipOfCode(POOL_SIZE, AddressZero)).to.revertedWith(REASON_INVALID_CODE);
+        await expect(rootRouter.transferFrom(AddressZero, AddressZero, POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
     });
 
-    it('Method transferOwnershipOfCode: if insufficient rights', async () => {
+    it('Method transferFrom: if insufficient rights', async () => {
         const {rootRouter, owner, accounts: [pastCodeOwner, newCodeOwner]} = await loadFixture(deploy);
         const code = 100;
 
         await rootRouter.connect(pastCodeOwner).mint(code, {value: MINT_PRICE});
 
-        await expect(rootRouter.connect(newCodeOwner).transferOwnershipOfCode(code, AddressZero)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
-        await expect(rootRouter.connect(owner).transferOwnershipOfCode(code, newCodeOwner.address))
+        await expect(rootRouter.connect(newCodeOwner).transferFrom(pastCodeOwner.address, newCodeOwner.address, code)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner).transferFrom(pastCodeOwner.address, newCodeOwner.address, code))
             .to.emit(rootRouter, 'Transfer').withArgs(pastCodeOwner, newCodeOwner, code)
             .and.changeTokenBalances(rootRouter, [pastCodeOwner, newCodeOwner], [-1, 1]);
     });
 
-    it('Method transferOwnershipOfCode: if the call is valid', async () => {
+    it('Method transferFrom: if the call is valid', async () => {
         const {rootRouter, accounts: [pastCodeOwner, newCodeOwner]} = await loadFixture(deploy);
         const code = 100;
 
         await rootRouter.connect(pastCodeOwner).mint(code, {value: MINT_PRICE});
 
-        await expect(rootRouter.connect(pastCodeOwner).transferOwnershipOfCode(code, newCodeOwner.address))
+        await expect(rootRouter.connect(pastCodeOwner).transferFrom(pastCodeOwner.address, newCodeOwner.address, code))
+            .to.emit(rootRouter, 'Transfer').withArgs(pastCodeOwner, newCodeOwner, code)
+            .and.changeTokenBalances(rootRouter, [pastCodeOwner, newCodeOwner], [-1, 1]);
+    });
+
+    it('Method safeTransferFrom: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+
+        await expect(rootRouter['safeTransferFrom(address,address,uint256,bytes)'](AddressZero, AddressZero, POOL_SIZE, [])).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method safeTransferFrom: if insufficient rights', async () => {
+        const {rootRouter, owner, accounts: [pastCodeOwner, newCodeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(pastCodeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(newCodeOwner)['safeTransferFrom(address,address,uint256,bytes)'](pastCodeOwner.address, newCodeOwner.address, code, [])).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
+        await expect(rootRouter.connect(owner)['safeTransferFrom(address,address,uint256,bytes)'](pastCodeOwner.address, newCodeOwner.address, code, []))
+            .to.emit(rootRouter, 'Transfer').withArgs(pastCodeOwner, newCodeOwner, code)
+            .and.changeTokenBalances(rootRouter, [pastCodeOwner, newCodeOwner], [-1, 1]);
+    });
+
+    it('Method safeTransferFrom: if the call is valid', async () => {
+        const {rootRouter, accounts: [pastCodeOwner, newCodeOwner]} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.connect(pastCodeOwner).mint(code, {value: MINT_PRICE});
+
+        await expect(rootRouter.connect(pastCodeOwner)['safeTransferFrom(address,address,uint256,bytes)'](pastCodeOwner.address, newCodeOwner.address, code, []))
             .to.emit(rootRouter, 'Transfer').withArgs(pastCodeOwner, newCodeOwner, code)
             .and.changeTokenBalances(rootRouter, [pastCodeOwner, newCodeOwner], [-1, 1]);
     });

@@ -25,6 +25,7 @@ contract RootRouter is ERC721, Ownable {
 
     struct Code {
         bool isBlocked;
+        bool isVerified;
         bool hasSipDomain; // Used if number mode
         bool hasRouter; // Used if pool mode
         uint256 subscriptionEndTime;
@@ -55,6 +56,8 @@ contract RootRouter is ERC721, Ownable {
 
     string public baseUri = "https://mvts-metadata.io/";
     string public defaultSipDomain = "sip.quic.pro";
+
+    address public verificationOperator;
 
 
 
@@ -93,6 +96,11 @@ contract RootRouter is ERC721, Ownable {
     function isBlocked(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return _pool[code].isBlocked;
+    }
+
+    function isVerified(uint256 code) public view returns (bool) {
+        require(_isValidCode(code), "Invalid code!");
+        return _pool[code].isVerified;
     }
 
     function isHeld(uint256 code) public view returns (bool) {
@@ -206,7 +214,7 @@ contract RootRouter is ERC721, Ownable {
     }
 
     function _checkPayment(uint256 expected, uint256 received) internal view returns (bool) {
-        return ((received >= expected) || (msg.sender == owner()));
+        return ((received >= expected) || (_msgSender() == owner()));
     }
 
     function _setCodeSipDomain(uint256 code, string memory newSipDomain) internal {
@@ -274,9 +282,19 @@ contract RootRouter is ERC721, Ownable {
         baseUri = newBaseUri;
     }
 
+    function setVerificationOperator(address newVerificationOperator) external onlyOwner {
+        verificationOperator = newVerificationOperator;
+    }
+
     function setCodeBlockedStatus(uint256 code, bool newBlockedStatus) external onlyOwner {
         require(_isValidCode(code), "Invalid code!");
         _pool[code].isBlocked = newBlockedStatus;
+    }
+
+    function setCodeVerifiedStatus(uint256 code, bool newVerifiedStatus) external {
+        require((_msgSender() == owner()) || (_msgSender() == verificationOperator), "Insufficient rights!");
+        require(_isValidCode(code), "Invalid code!");
+        _pool[code].isVerified = newVerifiedStatus;
     }
 
     function setCodeSubscriptionEndTime(uint256 code, uint256 newSubscriptionEndTime) external onlyOwner {
@@ -296,7 +314,7 @@ contract RootRouter is ERC721, Ownable {
         if (_exists(code)) {
             _burn(code);
         }
-        _safeMint(msg.sender, code);
+        _safeMint(_msgSender(), code);
 
         delete _pool[code];
         _pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
@@ -304,22 +322,31 @@ contract RootRouter is ERC721, Ownable {
 
     function renewSubscription(uint256 code) external payable {
         require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(_checkPayment(subscriptionPrice, msg.value), "Insufficient funds!");
 
         _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime.add(subscriptionDuration);
     }
 
-    function transferOwnershipOfCode(uint256 code, address newOwner) external {
-        require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
+    function transferFrom(address from, address to, uint256 tokenId) public virtual override {
+        require(_isValidCode(tokenId), "Invalid code!");
+        require(_isApprovedOrOwner(_msgSender(), tokenId) || ((_msgSender() == owner()) && hasOwner(tokenId)), "Insufficient rights!");
 
-        _transfer(ownerOf(code), newOwner, code);
+        _transfer(from, to, tokenId);
+        _pool[tokenId].isVerified = false;
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public virtual override {
+        require(_isValidCode(tokenId), "Invalid code!");
+        require(_isApprovedOrOwner(_msgSender(), tokenId) || ((_msgSender() == owner()) && hasOwner(tokenId)), "Insufficient rights!");
+
+        _safeTransfer(from, to, tokenId, data);
+        _pool[tokenId].isVerified = false;
     }
 
     function renounceOwnershipOfCode(uint256 code) external {
         require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
 
         _burn(code);
         delete _pool[code];
@@ -327,7 +354,7 @@ contract RootRouter is ERC721, Ownable {
 
     function changeCodeMode(uint256 code) external payable {
         require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(_checkPayment(modeChangePrice, msg.value), "Insufficient funds!");
 
         if (isNumberMode(code)) {
@@ -341,7 +368,7 @@ contract RootRouter is ERC721, Ownable {
 
     function setCodeSipDomain(uint256 code, string memory newSipDomain) external {
         require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(!isBlocked(code), "Code blocked!");
         require(isNumberMode(code), "Invalid code mode!");
 
@@ -350,7 +377,7 @@ contract RootRouter is ERC721, Ownable {
 
     function clearCodeSipDomain(uint256 code) external {
         require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(!isBlocked(code), "Code blocked!");
         require(isNumberMode(code), "Invalid code mode!");
 
@@ -359,7 +386,7 @@ contract RootRouter is ERC721, Ownable {
 
     function setCodeRouter(uint256 code, uint256 newChainId, string memory newAdr, uint256 newPoolCodeLength) external {
         require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(!isBlocked(code), "Code blocked!");
         require(isPoolMode(code), "Invalid code mode!");
 
@@ -369,7 +396,7 @@ contract RootRouter is ERC721, Ownable {
 
     function clearCodeRouter(uint256 code) external {
         require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(msg.sender, code) || ((msg.sender == owner()) && hasOwner(code)), "Insufficient rights!");
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(!isBlocked(code), "Code blocked!");
         require(isPoolMode(code), "Invalid code mode!");
 
