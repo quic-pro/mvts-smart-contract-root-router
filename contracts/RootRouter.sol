@@ -18,9 +18,9 @@ contract RootRouter is ERC721, Ownable {
     enum CodeMode {Number, Pool}
 
     struct Router {
-        string chainId;
+        uint256 chainId;
+        uint256 poolCodeLength;
         string adr;
-        string poolCodeLength;
     }
 
     struct Code {
@@ -41,6 +41,14 @@ contract RootRouter is ERC721, Ownable {
         bool isAvailableForMint;
         uint256 subscriptionEndTime;
         uint256 holdEndTime;
+    }
+
+    struct NodeData {
+        uint256 responseCode;
+        uint256 ttl;
+        CodeMode mode;
+        string sipUri;
+        Router router;
     }
 
 
@@ -202,6 +210,10 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- INTERNAL UTILS --------------------------------------------------------------------------------------------
 
+    function _baseURI() internal view override returns (string memory) {
+        return baseUri;
+    }
+
     function _isValidCode(uint256 code) internal pure returns (bool) {
         return (code < POOL_SIZE);
     }
@@ -237,8 +249,12 @@ contract RootRouter is ERC721, Ownable {
         _pool[code].hasRouter = false;
     }
 
-    function _baseURI() internal view override returns (string memory) {
-        return baseUri;
+    function _createNodeDataWithResponseCode(uint256 responseCode) internal view returns (NodeData memory) {
+        NodeData memory nodeData;
+        nodeData.ttl = ttl;
+        nodeData.responseCode = responseCode;
+
+        return nodeData;
     }
 
 
@@ -390,7 +406,7 @@ contract RootRouter is ERC721, Ownable {
         require(!isBlocked(code), "Code blocked!");
         require(isPoolMode(code), "Invalid code mode!");
 
-        Router memory newRouter = Router(Strings.toString(newChainId), newAdr, Strings.toString(newPoolCodeLength));
+        Router memory newRouter = Router(newChainId, newPoolCodeLength, newAdr);
         _setCodeRouter(code, newRouter);
     }
 
@@ -407,28 +423,31 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
-    function getNextNode(uint256 code) public view returns (string[5] memory) {
-        if (!_isValidCode(code)) return ["400", "", "", "", Strings.toString(ttl)];
-        if (isBlocked(code)) return ["400", "", "", "", Strings.toString(ttl)];
-        if (!hasOwner(code)) return ["400", "", "", "", Strings.toString(ttl)];
-        if (isHeld(code)) return ["400", "", "", "", Strings.toString(ttl)];
+    function getNodeData(uint256 code) public view returns (NodeData memory) {
+        if (!_isValidCode(code)) return _createNodeDataWithResponseCode(400);
+        if (isBlocked(code)) return _createNodeDataWithResponseCode(400);
+        if (!hasOwner(code)) return _createNodeDataWithResponseCode(400);
+        if (isHeld(code)) return _createNodeDataWithResponseCode(400);
 
         if (isNumberMode(code)) {
-            return [
-                "200", // Response code
-                "0", // Pool code length
-                Strings.toHexString(_ownerOf(code)),
-                (_pool[code].hasSipDomain ? _pool[code].sipDomain : defaultSipDomain),
-                Strings.toString(ttl)
-            ];
+            string memory sipDomain = (_pool[code].hasSipDomain ? _pool[code].sipDomain : defaultSipDomain);
+            string memory codeOwner = Strings.toHexString(_ownerOf(code));
+
+            return NodeData(
+                200, // Response code
+                ttl,
+                _pool[code].mode,
+                string(abi.encodePacked(codeOwner, "@", sipDomain)), // sipUri
+                _pool[code].router
+            );
         } else {
-            return [
-                (_pool[code].hasRouter ? "200" : "400"), // Response code
-                _pool[code].router.poolCodeLength,
-                _pool[code].router.chainId,
-                _pool[code].router.adr,
-                Strings.toString(ttl)
-            ];
+            return NodeData(
+                (_pool[code].hasRouter ? 200 : 400), // Response code
+                ttl,
+                _pool[code].mode,
+                "", // sipUri
+                _pool[code].router
+            );
         }
     }
 }

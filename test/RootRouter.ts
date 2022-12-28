@@ -1,9 +1,12 @@
 import {loadFixture, time} from '@nomicfoundation/hardhat-network-helpers';
-import {expect} from 'chai';
+import chai, {expect} from 'chai';
 import {ethers} from 'hardhat';
 
 import {RootRouter} from '../typechain-types';
 import {DAY, YEAR} from './constants';
+
+
+chai.use(require('chai-string'));
 
 
 const {BigNumber} = ethers;
@@ -59,6 +62,10 @@ describe('RootRouter', () => {
         };
     }
 
+    async function getEndTime(duration: number | InstanceType<typeof BigNumber>): Promise<InstanceType<typeof BigNumber>> {
+        return BigNumber.from(await time.latest()).add(duration);
+    }
+
     function expectCodeData(actualCodeData: RootRouter.CodeStructOutput, expectedCodeData?: Partial<RootRouter.CodeStructOutput>) {
         expect(actualCodeData).to.length(8);
         expect(actualCodeData.isBlocked).to.equal(expectedCodeData?.isBlocked ?? false);
@@ -69,9 +76,9 @@ describe('RootRouter', () => {
         expect(actualCodeData.mode).to.equal(expectedCodeData?.mode ?? CodeMode.Number);
         expect(actualCodeData.sipDomain).to.equal(expectedCodeData?.sipDomain ?? '');
         expect(actualCodeData.router).to.have.deep.members([
-            expectedCodeData?.router?.chainId ?? '',
-            expectedCodeData?.router?.adr ?? '',
-            expectedCodeData?.router?.poolCodeLength ?? ''
+            BigNumber.from(expectedCodeData?.router?.chainId ?? Zero),
+            BigNumber.from(expectedCodeData?.router?.poolCodeLength ?? Zero),
+            expectedCodeData?.router?.adr ?? ''
         ]);
     }
 
@@ -85,8 +92,17 @@ describe('RootRouter', () => {
         expect(actualCodeStatus.holdEndTime).to.closeTo(expectedCodeStatus?.holdEndTime ?? 0, 10);
     }
 
-    async function getEndTime(duration: number | InstanceType<typeof BigNumber>): Promise<InstanceType<typeof BigNumber>> {
-        return BigNumber.from(await time.latest()).add(duration);
+    function expectNodeData(actualNodeData: RootRouter.NodeDataStruct, expectedNodeData?: Partial<RootRouter.NodeDataStruct>) {
+        expect(actualNodeData).to.length(5);
+        expect(actualNodeData.responseCode).to.equal(expectedNodeData?.responseCode ?? Zero);
+        expect(actualNodeData.ttl).to.equal(expectedNodeData?.ttl ?? Zero);
+        expect(actualNodeData.mode).to.equal(expectedNodeData?.mode ?? Zero);
+        expect(actualNodeData.sipUri).to.equalIgnoreCase(<string>expectedNodeData?.sipUri ?? '');
+        expect(actualNodeData.router).to.have.deep.members([
+            BigNumber.from(expectedNodeData?.router?.chainId ?? Zero),
+            BigNumber.from(expectedNodeData?.router?.poolCodeLength ?? Zero),
+            expectedNodeData?.router?.adr ?? ''
+        ]);
     }
 
 
@@ -1127,9 +1143,9 @@ describe('RootRouter', () => {
             hasRouter: true,
             // @ts-ignore
             router: {
-                chainId: newChainId.toString(),
+                chainId: newChainId,
                 adr: newAdr,
-                poolCodeLength: newPoolCodeLength.toString()
+                poolCodeLength: newPoolCodeLength
             }
         });
     });
@@ -1168,9 +1184,9 @@ describe('RootRouter', () => {
             hasRouter: true,
             // @ts-ignore
             router: {
-                chainId: newChainId.toString(),
+                chainId: newChainId,
                 adr: newAdr,
-                poolCodeLength: newPoolCodeLength.toString()
+                poolCodeLength: newPoolCodeLength
             }
         });
     });
@@ -1234,69 +1250,93 @@ describe('RootRouter', () => {
 
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
-    it('Method getNextNode: if code is invalid', async () => {
+    it('Method getNodeData: if code is invalid', async () => {
         const {rootRouter} = await loadFixture(deploy);
 
-        expect(await rootRouter.getNextNode(POOL_SIZE)).to.deep.equal(['400', '', '', '', TTL.toString()]);
+        expectNodeData(await rootRouter.getNodeData(POOL_SIZE), {
+            responseCode: 400,
+            ttl: TTL
+        });
     });
 
-    it('Method getNextNode: if the code is blocked', async () => {
+    it('Method getNodeData: if the code is blocked', async () => {
         const {rootRouter} = await loadFixture(deploy);
         const code = 100;
 
         await rootRouter.mint(code);
         await rootRouter.setCodeBlockedStatus(code, true);
 
-        expect(await rootRouter.getNextNode(code)).to.deep.equal(['400', '', '', '', TTL.toString()]);
+        expectNodeData(await rootRouter.getNodeData(code), {
+            responseCode: 400,
+            ttl: TTL
+        });
     });
 
-    it('Method getNextNode: if the code not in use', async () => {
+    it('Method getNodeData: if the code not in use', async () => {
         const {rootRouter} = await loadFixture(deploy);
         const code = 100;
 
-        expect(await rootRouter.getNextNode(code)).to.deep.equal(['400', '', '', '', TTL.toString()]);
+        expectNodeData(await rootRouter.getNodeData(code), {
+            responseCode: 400,
+            ttl: TTL
+        });
     });
 
-    it('Method getNextNode: if the code is held', async () => {
+    it('Method getNodeData: if the code is held', async () => {
         const {rootRouter} = await loadFixture(deploy);
         const code = 100;
 
         await rootRouter.mint(code);
         await rootRouter.setCodeSubscriptionEndTime(code, await getEndTime(0));
 
-        expect(await rootRouter.getNextNode(code)).to.deep.equal(['400', '', '', '', TTL.toString()]);
+        expectNodeData(await rootRouter.getNodeData(code), {
+            responseCode: 400,
+            ttl: TTL
+        });
     });
 
-    it('Method getNextNode: if the code is a number with default sip domain', async () => {
+    it('Method getNodeData: if the code is a number with default sip domain', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const code = 100;
 
         await rootRouter.mint(code);
 
-        expect(await rootRouter.getNextNode(code)).to.deep.equal(['200', '0', owner.address, DEFAULT_SIP_DOMAIN, TTL.toString()]);
+        expectNodeData(await rootRouter.getNodeData(code), {
+            responseCode: 200,
+            ttl: TTL,
+            sipUri: `${owner.address}@${DEFAULT_SIP_DOMAIN}`
+        });
     });
 
-    it('Method getNextNode: if the code is a number with custom sip domain', async () => {
+    it('Method getNodeData: if the code is a number with custom sip domain', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const code = 100, newSipDomain = 'sip.test';
 
         await rootRouter.mint(code);
         await rootRouter.setCodeSipDomain(code, newSipDomain)
 
-        expect(await rootRouter.getNextNode(code)).to.deep.equal(['200', '0', owner.address, newSipDomain, TTL.toString()]);
+        expectNodeData(await rootRouter.getNodeData(code), {
+            responseCode: 200,
+            ttl: TTL,
+            sipUri: `${owner.address}@${newSipDomain}`
+        });
     });
 
-    it('Method getNextNode: if the code is a pool without router', async () => {
+    it('Method getNodeData: if the code is a pool without router', async () => {
         const {rootRouter} = await loadFixture(deploy);
         const code = 100;
 
         await rootRouter.mint(code);
         await rootRouter.changeCodeMode(code);
 
-        expect(await rootRouter.getNextNode(code)).to.deep.equal(['400', '0', '', '', TTL.toString()]);
+        expectNodeData(await rootRouter.getNodeData(code), {
+            responseCode: 400,
+            ttl: TTL,
+            mode: CodeMode.Pool
+        });
     });
 
-    it('Method getNextNode: if the code is a pool with router', async () => {
+    it('Method getNodeData: if the code is a pool with router', async () => {
         const {rootRouter} = await loadFixture(deploy);
         const code = 100, newChainId = 1, newAdr = rootRouter.address, newPoolCodeLength = 3;;
 
@@ -1304,6 +1344,15 @@ describe('RootRouter', () => {
         await rootRouter.changeCodeMode(code);
         await rootRouter.setCodeRouter(code, newChainId, newAdr, newPoolCodeLength);
 
-        expect(await rootRouter.getNextNode(code)).to.deep.equal(['200', newPoolCodeLength.toString(), newChainId.toString(), newAdr, TTL.toString()]);
+        expectNodeData(await rootRouter.getNodeData(code), {
+            responseCode: 200,
+            ttl: TTL,
+            mode: CodeMode.Pool,
+            router: {
+                chainId: newChainId,
+                adr: newAdr,
+                poolCodeLength: newPoolCodeLength
+            }
+        });
     });
 });
