@@ -17,6 +17,8 @@ contract RootRouter is ERC721, Ownable {
 
     enum CodeMode {Number, Pool}
 
+    enum CodeStatus {AvailableForMinting, Active, Held, Blocked}
+
     struct Router {
         uint256 chainId;
         uint256 poolCodeLength;
@@ -33,15 +35,6 @@ contract RootRouter is ERC721, Ownable {
         CodeMode mode;
         string sipDomain; // Used if number mode
         Router router; // Used if pool mode
-    }
-
-    struct CodeStatus {
-        bool isBlocked;
-        bool hasOwner;
-        bool isHeld;
-        bool isAvailableForMint;
-        uint256 subscriptionEndTime;
-        uint256 holdEndTime;
     }
 
     struct NodeData {
@@ -102,24 +95,9 @@ contract RootRouter is ERC721, Ownable {
         return _pool[code];
     }
 
-    function isBlocked(uint256 code) public view returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
-        return _pool[code].isBlocked;
-    }
-
     function isVerified(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return _pool[code].isVerified;
-    }
-
-    function isHeld(uint256 code) public view returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
-        return (hasOwner(code) && (block.timestamp > _pool[code].subscriptionEndTime) && (block.timestamp <= _pool[code].holdEndTime));
-    }
-
-    function isAvailableForMint(uint256 code) public view returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
-        return (!hasOwner(code) && !isBlocked(code));
     }
 
     function isNumberMode(uint256 code) public view returns (bool) {
@@ -143,58 +121,34 @@ contract RootRouter is ERC721, Ownable {
         return _pool[code].mode;
     }
 
-    function getCodeStatus(uint256 code) public view returns (CodeStatus memory) {
-        require(_isValidCode(code), "Invalid code!");
-
-        if (hasOwner(code)) {
-            return CodeStatus(
-                isBlocked(code),
-                true, // hasOwner
-                isHeld(code),
-                isAvailableForMint(code),
-                _pool[code].subscriptionEndTime,
-                _pool[code].holdEndTime
-            );
-        } else {
-            return CodeStatus(
-                isBlocked(code),
-                false, // hasOwner
-                false, // isHeld
-                isAvailableForMint(code),
-                0, // subscriptionEndTime
-                0 // holdEndTime
-            );
+    function getCodeStatus(uint256 code) public view returns (CodeStatus) {
+        if (_pool[code].isBlocked) {
+            return CodeStatus.Blocked;
         }
+
+        if (_exists(code) && (block.timestamp < _pool[code].subscriptionEndTime)) {
+            return CodeStatus.Active;
+        }
+
+        if (_exists(code) && (block.timestamp < _pool[code].holdEndTime)) {
+            return CodeStatus.Held;
+        }
+
+        return CodeStatus.AvailableForMinting;
     }
 
-    function getBlockedCodes() public view returns (bool[POOL_SIZE] memory) {
-        bool[POOL_SIZE] memory blockedCodes;
+    function getCodeStatuses() public view returns (CodeStatus[POOL_SIZE] memory) {
+        CodeStatus[POOL_SIZE] memory statuses;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            blockedCodes[code] = isBlocked(code);
+            statuses[code] = getCodeStatus(code);
         }
-        return blockedCodes;
-    }
-
-    function getHeldCodes() public view returns (bool[POOL_SIZE] memory) {
-        bool[POOL_SIZE] memory heldCodes;
-        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            heldCodes[code] = isHeld(code);
-        }
-        return heldCodes;
-    }
-
-    function getAvailableForMintCodes() public view returns (bool[POOL_SIZE] memory) {
-        bool[POOL_SIZE] memory availableForMintCodes;
-        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            availableForMintCodes[code] = isAvailableForMint(code);
-        }
-        return availableForMintCodes;
+        return statuses;
     }
 
     function getPoolCodes() public view returns (bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory poolCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            poolCodes[code] = (!isAvailableForMint(code) && (_pool[code].mode == CodeMode.Pool));
+            poolCodes[code] = ((getCodeStatus(code) == CodeStatus.Active) && (_pool[code].mode == CodeMode.Pool));
         }
         return poolCodes;
     }
@@ -330,7 +284,7 @@ contract RootRouter is ERC721, Ownable {
 
     function mint(uint256 code) external payable {
         require(_isValidCode(code), "Invalid code!");
-        require(isAvailableForMint(code), "Not available for minting!");
+        require(getCodeStatus(code) == CodeStatus.AvailableForMinting, "Not available for minting!");
         require(_checkPayment(mintPrice, msg.value), "Insufficient funds!");
 
         if (_exists(code)) {
@@ -393,7 +347,7 @@ contract RootRouter is ERC721, Ownable {
     function setCodeSipDomain(uint256 code, string memory newSipDomain) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(!isBlocked(code), "Code blocked!");
+        require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
         require(isNumberMode(code), "Invalid code mode!");
 
         _setCodeSipDomain(code, newSipDomain);
@@ -402,7 +356,7 @@ contract RootRouter is ERC721, Ownable {
     function clearCodeSipDomain(uint256 code) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(!isBlocked(code), "Code blocked!");
+        require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
         require(isNumberMode(code), "Invalid code mode!");
 
         _clearCodeSipDomain(code);
@@ -411,7 +365,7 @@ contract RootRouter is ERC721, Ownable {
     function setCodeRouter(uint256 code, uint256 newChainId, string memory newAdr, uint256 newPoolCodeLength) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(!isBlocked(code), "Code blocked!");
+        require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
         require(isPoolMode(code), "Invalid code mode!");
 
         Router memory newRouter = Router(newChainId, newPoolCodeLength, newAdr);
@@ -421,7 +375,7 @@ contract RootRouter is ERC721, Ownable {
     function clearCodeRouter(uint256 code) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(!isBlocked(code), "Code blocked!");
+        require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
         require(isPoolMode(code), "Invalid code mode!");
 
         _clearCodeRouter(code);
@@ -433,9 +387,9 @@ contract RootRouter is ERC721, Ownable {
 
     function getNodeData(uint256 code) public view returns (NodeData memory) {
         if (!_isValidCode(code)) return _createNodeDataWithResponseCode(400);
-        if (isBlocked(code)) return _createNodeDataWithResponseCode(400);
-        if (!hasOwner(code)) return _createNodeDataWithResponseCode(400);
-        if (isHeld(code)) return _createNodeDataWithResponseCode(400);
+        if (getCodeStatus(code) == CodeStatus.Blocked) return _createNodeDataWithResponseCode(400);
+        if (getCodeStatus(code) == CodeStatus.Held) return _createNodeDataWithResponseCode(400);
+        if (getCodeStatus(code) != CodeStatus.Active) return _createNodeDataWithResponseCode(400);
 
         if (isNumberMode(code)) {
             string memory sipDomain = (_pool[code].hasSipDomain ? _pool[code].sipDomain : defaultSipDomain);
