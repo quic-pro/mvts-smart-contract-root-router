@@ -61,7 +61,7 @@ contract RootRouter is ERC721, Ownable {
     uint256 public subscriptionPrice = 7 ether;
     uint256 public modeChangePrice = 5 ether;
     uint256 public subscriptionDuration = 3650 days; // ~10 years
-    uint256 public holdingDuration = 30 days; // ~1 month
+    uint256 public holdDuration = 30 days; // ~1 month
     uint256 public ttl = 10 days;
 
     string public baseUri = "https://mvts-metadata.io/";
@@ -232,8 +232,8 @@ contract RootRouter is ERC721, Ownable {
         subscriptionDuration = newSubscriptionDuration;
     }
 
-    function setHoldingDuration(uint256 newHoldingDuration) external onlyOwner {
-        holdingDuration = newHoldingDuration;
+    function setHoldDuration(uint256 newHoldDuration) external onlyOwner {
+        holdDuration = newHoldDuration;
     }
 
     function setTtl(uint256 newTtl) external onlyOwner {
@@ -298,7 +298,7 @@ contract RootRouter is ERC721, Ownable {
 
         delete _pool[code];
         _pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
-        _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdingDuration);
+        _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdDuration);
     }
 
     function renewSubscription(uint256 code) external payable {
@@ -307,7 +307,7 @@ contract RootRouter is ERC721, Ownable {
         require(_checkPayment(subscriptionPrice, msg.value), "Insufficient funds!");
 
         _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime.add(subscriptionDuration);
-        _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdingDuration);
+        _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdDuration);
     }
 
     function transferFrom(address from, address to, uint256 tokenId) public virtual override {
