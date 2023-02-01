@@ -199,6 +199,14 @@ contract RootRouter is ERC721, Ownable {
         return nodeData;
     }
 
+    function _setCodeSubscription(uint256 code, uint256 newSubscriptionEndTime, uint256 newHoldEndTime) internal {
+        require(_isValidCode(code), "Invalid code!");
+        require(newHoldEndTime >= newSubscriptionEndTime, "Invalid newHoldEndTime!");
+
+        _pool[code].subscriptionEndTime = newSubscriptionEndTime;
+        _pool[code].holdEndTime = newHoldEndTime;
+    }
+
 
 
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
@@ -255,14 +263,23 @@ contract RootRouter is ERC721, Ownable {
         _pool[code].isVerified = newVerifiedStatus;
     }
 
+    function setCodeSubscription(uint256 code, uint256 newSubscriptionEndTime, uint256 newHoldEndTime) external onlyOwner {
+        require(_isValidCode(code), "Invalid code!");
+        _setCodeSubscription(code, newSubscriptionEndTime, newHoldEndTime);
+    }
+
     function setCodeSubscriptionEndTime(uint256 code, uint256 newSubscriptionEndTime) external onlyOwner {
         require(_isValidCode(code), "Invalid code!");
-        _pool[code].subscriptionEndTime = newSubscriptionEndTime;
+
+        uint256 currentHoldDuration = _pool[code].holdEndTime.sub(_pool[code].subscriptionEndTime);
+        uint256 newHoldEndTime = newSubscriptionEndTime.add(currentHoldDuration);
+
+        _setCodeSubscription(code, newSubscriptionEndTime, newHoldEndTime);
     }
 
     function setCodeHoldEndTime(uint256 code, uint256 newHoldEndTime) external onlyOwner {
         require(_isValidCode(code), "Invalid code!");
-        _pool[code].holdEndTime = newHoldEndTime;
+        _setCodeSubscription(code, _pool[code].subscriptionEndTime, newHoldEndTime);
     }
 
 
