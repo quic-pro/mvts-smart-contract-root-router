@@ -402,21 +402,21 @@ contract RootRouter is ERC721, Ownable {
             string memory sipDomain = (bytes(_pool[code].sipDomain).length == 0) ? defaultSipDomain : _pool[code].sipDomain;
             string memory codeOwner = Strings.toHexString(_ownerOf(code));
 
-            return NodeData(
-                200, // Response code
-                ttl,
-                _pool[code].mode,
-                string(abi.encodePacked(codeOwner, "@", sipDomain)), // sipUri
-                _pool[code].router
-            );
+            return NodeData({
+                responseCode: 200,
+                ttl: ttl,
+                mode: _pool[code].mode,
+                sipUri: string(abi.encodePacked(codeOwner, "@", sipDomain)),
+                router: _pool[code].router
+            });
         } else {
-            return NodeData(
-                200, // Response code
-                ttl,
-                _pool[code].mode,
-                "", // sipUri
-                _pool[code].router
-            );
+            return NodeData({
+                responseCode: 200,
+                ttl: ttl,
+                mode: _pool[code].mode,
+                sipUri: "",
+                router: _pool[code].router
+            });
         }
     }
 }
