@@ -28,8 +28,16 @@ contract RootRouter is ERC721, Ownable {
     struct Code {
         bool isBlocked;
         bool isVerified;
-        bool hasSipDomain; // Used if number mode
-        bool hasRouter; // Used if pool mode
+        uint256 subscriptionEndTime;
+        uint256 holdEndTime;
+        CodeMode mode;
+        string sipDomain; // Used if number mode
+        Router router; // Used if pool mode
+    }
+
+    struct CodeData {
+        CodeStatus status;
+        bool isVerified;
         uint256 subscriptionEndTime;
         uint256 holdEndTime;
         CodeMode mode;
@@ -88,37 +96,39 @@ contract RootRouter is ERC721, Ownable {
         return (_exists(code) && (block.timestamp < _pool[code].holdEndTime));
     }
 
-    function getCodeData(uint256 code) public view returns (Code memory) {
+    function getCodeData(uint256 code) public view returns (CodeData memory) {
         require(_isValidCode(code), "Invalid code!");
-        require(hasOwner(code), "Code not in use!");
 
-        return _pool[code];
+        if (hasOwner(code)) {
+            return CodeData({
+                status: getCodeStatus(code),
+                isVerified: _pool[code].isVerified,
+                subscriptionEndTime: _pool[code].subscriptionEndTime,
+                holdEndTime: _pool[code].holdEndTime,
+                mode: _pool[code].mode,
+                sipDomain: (bytes(_pool[code].sipDomain).length == 0) ? defaultSipDomain : _pool[code].sipDomain,
+                router: _pool[code].router
+            });
+        } else {
+            return CodeData({
+                status: getCodeStatus(code),
+                isVerified: false,
+                subscriptionEndTime: 0,
+                holdEndTime: 0,
+                mode: CodeMode.Number,
+                sipDomain: "",
+                router: Router({
+                    chainId: 0,
+                    poolCodeLength: 0,
+                    adr: ""
+                })
+            });
+        }
     }
 
     function isVerified(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
         return _pool[code].isVerified;
-    }
-
-    function isNumberMode(uint256 code) public view returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
-        require(hasOwner(code), "Code not in use!");
-
-        return (_pool[code].mode == CodeMode.Number);
-    }
-
-    function isPoolMode(uint256 code) public view returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
-        require(hasOwner(code), "Code not in use!");
-
-        return (_pool[code].mode == CodeMode.Pool);
-    }
-
-    function getMode(uint256 code) public view returns (CodeMode) {
-        require(_isValidCode(code), "Invalid code!");
-        require(hasOwner(code), "Code not in use!");
-
-        return _pool[code].mode;
     }
 
     function getCodeStatus(uint256 code) public view returns (CodeStatus) {
@@ -174,34 +184,11 @@ contract RootRouter is ERC721, Ownable {
     }
 
     function _isApprovedOrOwner(address adr, uint256 code) internal view override returns (bool) {
-        return (
-            _exists(code) && ERC721._isApprovedOrOwner(adr, code) &&
-            (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration))
-        );
+        return (hasOwner(code) && ERC721._isApprovedOrOwner(adr, code));
     }
 
     function _checkPayment(uint256 expected, uint256 received) internal view returns (bool) {
         return ((received >= expected) || (_msgSender() == owner()));
-    }
-
-    function _setCodeSipDomain(uint256 code, string memory newSipDomain) internal {
-        _pool[code].sipDomain = newSipDomain;
-        _pool[code].hasSipDomain = true;
-    }
-
-    function _clearCodeSipDomain(uint256 code) internal {
-        delete _pool[code].sipDomain;
-        _pool[code].hasSipDomain = false;
-    }
-
-    function _setCodeRouter(uint256 code, Router memory newRouter) internal {
-        _pool[code].router = newRouter;
-        _pool[code].hasRouter = true;
-    }
-
-    function _clearCodeRouter(uint256 code) internal {
-        delete _pool[code].router;
-        _pool[code].hasRouter = false;
     }
 
     function _createNodeDataWithResponseCode(uint256 responseCode) internal view returns (NodeData memory) {
@@ -335,12 +322,12 @@ contract RootRouter is ERC721, Ownable {
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(_checkPayment(modeChangePrice, msg.value), "Insufficient funds!");
 
-        if (isNumberMode(code)) {
+        if (_pool[code].mode == CodeMode.Number) {
             _pool[code].mode = CodeMode.Pool;
-            _clearCodeSipDomain(code);
+            delete _pool[code].sipDomain;
         } else {
             _pool[code].mode = CodeMode.Number;
-            _clearCodeRouter(code);
+            delete _pool[code].router;
         }
     }
 
@@ -348,37 +335,40 @@ contract RootRouter is ERC721, Ownable {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
-        require(isNumberMode(code), "Invalid code mode!");
+        require(_pool[code].mode == CodeMode.Number, "Invalid code mode!");
 
-        _setCodeSipDomain(code, newSipDomain);
+        _pool[code].sipDomain = newSipDomain;
     }
 
     function clearCodeSipDomain(uint256 code) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
-        require(isNumberMode(code), "Invalid code mode!");
+        require(_pool[code].mode == CodeMode.Number, "Invalid code mode!");
 
-        _clearCodeSipDomain(code);
+        delete _pool[code].sipDomain;
     }
 
     function setCodeRouter(uint256 code, uint256 newChainId, string memory newAdr, uint256 newPoolCodeLength) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
-        require(isPoolMode(code), "Invalid code mode!");
+        require(_pool[code].mode == CodeMode.Pool, "Invalid code mode!");
 
-        Router memory newRouter = Router(newChainId, newPoolCodeLength, newAdr);
-        _setCodeRouter(code, newRouter);
+        _pool[code].router = Router({
+            chainId: newChainId,
+            poolCodeLength: newPoolCodeLength,
+            adr: newAdr
+        });
     }
 
     function clearCodeRouter(uint256 code) external {
         require(_isValidCode(code), "Invalid code!");
         require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
         require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
-        require(isPoolMode(code), "Invalid code mode!");
+        require(_pool[code].mode == CodeMode.Pool, "Invalid code mode!");
 
-        _clearCodeRouter(code);
+        delete _pool[code].router;
     }
 
 
@@ -391,8 +381,8 @@ contract RootRouter is ERC721, Ownable {
         if (getCodeStatus(code) == CodeStatus.Held) return _createNodeDataWithResponseCode(400);
         if (getCodeStatus(code) != CodeStatus.Active) return _createNodeDataWithResponseCode(400);
 
-        if (isNumberMode(code)) {
-            string memory sipDomain = (_pool[code].hasSipDomain ? _pool[code].sipDomain : defaultSipDomain);
+        if (_pool[code].mode == CodeMode.Number) {
+            string memory sipDomain = (bytes(_pool[code].sipDomain).length == 0) ? defaultSipDomain : _pool[code].sipDomain;
             string memory codeOwner = Strings.toHexString(_ownerOf(code));
 
             return NodeData(
@@ -404,7 +394,7 @@ contract RootRouter is ERC721, Ownable {
             );
         } else {
             return NodeData(
-                (_pool[code].hasRouter ? 200 : 400), // Response code
+                200, // Response code
                 ttl,
                 _pool[code].mode,
                 "", // sipUri
