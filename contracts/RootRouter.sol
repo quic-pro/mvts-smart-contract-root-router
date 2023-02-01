@@ -29,6 +29,7 @@ contract RootRouter is ERC721, Ownable {
         bool hasSipDomain; // Used if number mode
         bool hasRouter; // Used if pool mode
         uint256 subscriptionEndTime;
+        uint256 holdEndTime;
         CodeMode mode;
         string sipDomain; // Used if number mode
         Router router; // Used if pool mode
@@ -91,7 +92,7 @@ contract RootRouter is ERC721, Ownable {
 
     function hasOwner(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
-        return (_exists(code) && (block.timestamp < _pool[code].subscriptionEndTime.add(holdingDuration)));
+        return (_exists(code) && (block.timestamp < _pool[code].holdEndTime));
     }
 
     function getCodeData(uint256 code) public view returns (Code memory) {
@@ -113,7 +114,7 @@ contract RootRouter is ERC721, Ownable {
 
     function isHeld(uint256 code) public view returns (bool) {
         require(_isValidCode(code), "Invalid code!");
-        return (hasOwner(code) && (block.timestamp > _pool[code].subscriptionEndTime));
+        return (hasOwner(code) && (block.timestamp > _pool[code].subscriptionEndTime) && (block.timestamp <= _pool[code].holdEndTime));
     }
 
     function isAvailableForMint(uint256 code) public view returns (bool) {
@@ -152,7 +153,7 @@ contract RootRouter is ERC721, Ownable {
                 isHeld(code),
                 isAvailableForMint(code),
                 _pool[code].subscriptionEndTime,
-                _pool[code].subscriptionEndTime.add(holdingDuration)
+                _pool[code].holdEndTime
             );
         } else {
             return CodeStatus(
@@ -318,6 +319,11 @@ contract RootRouter is ERC721, Ownable {
         _pool[code].subscriptionEndTime = newSubscriptionEndTime;
     }
 
+    function setCodeHoldEndTime(uint256 code, uint256 newHoldEndTime) external onlyOwner {
+        require(_isValidCode(code), "Invalid code!");
+        _pool[code].holdEndTime = newHoldEndTime;
+    }
+
 
 
     // ----- CODE MANAGEMENT -------------------------------------------------------------------------------------------
@@ -334,6 +340,7 @@ contract RootRouter is ERC721, Ownable {
 
         delete _pool[code];
         _pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
+        _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdingDuration);
     }
 
     function renewSubscription(uint256 code) external payable {
@@ -342,6 +349,7 @@ contract RootRouter is ERC721, Ownable {
         require(_checkPayment(subscriptionPrice, msg.value), "Insufficient funds!");
 
         _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime.add(subscriptionDuration);
+        _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdingDuration);
     }
 
     function transferFrom(address from, address to, uint256 tokenId) public virtual override {
