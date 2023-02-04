@@ -89,86 +89,6 @@ contract RootRouter is ERC721, Ownable {
 
 
 
-    // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
-
-    function hasOwner(uint256 code) onlyValidCode(code) public view returns(bool) {
-        return (_exists(code) && (block.timestamp < _pool[code].holdEndTime));
-    }
-
-    function getCodeData(uint256 code) onlyValidCode(code) public view returns(CodeData memory) {
-        if (hasOwner(code)) {
-            return CodeData({
-                status: getCodeStatus(code),
-                isVerified: _pool[code].isVerified,
-                subscriptionEndTime: _pool[code].subscriptionEndTime,
-                holdEndTime: _pool[code].holdEndTime,
-                mode: _pool[code].mode,
-                sipDomain: (bytes(_pool[code].sipDomain).length == 0) ? defaultSipDomain : _pool[code].sipDomain,
-                router: _pool[code].router
-            });
-        } else {
-            return CodeData({
-                status: getCodeStatus(code),
-                isVerified: false,
-                subscriptionEndTime: 0,
-                holdEndTime: 0,
-                mode: CodeMode.Number,
-                sipDomain: "",
-                router: Router({
-                    chainId: 0,
-                    poolCodeLength: 0,
-                    adr: ""
-                })
-            });
-        }
-    }
-
-    function isVerified(uint256 code) public view onlyValidCode(code) returns(bool) {
-        return _pool[code].isVerified;
-    }
-
-    function getCodeStatus(uint256 code) public view returns(CodeStatus) {
-        if (_pool[code].isBlocked) {
-            return CodeStatus.Blocked;
-        }
-
-        if (_exists(code) && (block.timestamp < _pool[code].subscriptionEndTime)) {
-            return CodeStatus.Active;
-        }
-
-        if (_exists(code) && (block.timestamp < _pool[code].holdEndTime)) {
-            return CodeStatus.Held;
-        }
-
-        return CodeStatus.AvailableForMinting;
-    }
-
-    function getCodeStatuses() public view returns(CodeStatus[POOL_SIZE] memory) {
-        CodeStatus[POOL_SIZE] memory statuses;
-        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            statuses[code] = getCodeStatus(code);
-        }
-        return statuses;
-    }
-
-    function getPoolCodes() public view returns(bool[POOL_SIZE] memory) {
-        bool[POOL_SIZE] memory poolCodes;
-        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            poolCodes[code] = ((getCodeStatus(code) == CodeStatus.Active) && (_pool[code].mode == CodeMode.Pool));
-        }
-        return poolCodes;
-    }
-
-    function getOwnerCodes(address adr) public view returns(bool[POOL_SIZE] memory) {
-        bool[POOL_SIZE] memory ownerCodes;
-        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
-            ownerCodes[code] = _isApprovedOrOwner(adr, code);
-        }
-        return ownerCodes;
-    }
-
-
-
     // ----- INTERNAL UTILS --------------------------------------------------------------------------------------------
 
     function _baseURI() internal view override returns(string memory) {
@@ -244,6 +164,86 @@ contract RootRouter is ERC721, Ownable {
 
 
 
+    // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
+
+    function hasOwner(uint256 code) onlyValidCode(code) public view returns(bool) {
+        return (_exists(code) && (block.timestamp < _pool[code].holdEndTime));
+    }
+
+    function getCodeData(uint256 code) onlyValidCode(code) public view returns(CodeData memory) {
+        if (hasOwner(code)) {
+            return CodeData({
+            status: getCodeStatus(code),
+            isVerified: _pool[code].isVerified,
+            subscriptionEndTime: _pool[code].subscriptionEndTime,
+            holdEndTime: _pool[code].holdEndTime,
+            mode: _pool[code].mode,
+            sipDomain: (bytes(_pool[code].sipDomain).length == 0) ? defaultSipDomain : _pool[code].sipDomain,
+            router: _pool[code].router
+            });
+        } else {
+            return CodeData({
+            status: getCodeStatus(code),
+            isVerified: false,
+            subscriptionEndTime: 0,
+            holdEndTime: 0,
+            mode: CodeMode.Number,
+            sipDomain: "",
+            router: Router({
+            chainId: 0,
+            poolCodeLength: 0,
+            adr: ""
+            })
+            });
+        }
+    }
+
+    function isVerified(uint256 code) public view onlyValidCode(code) returns(bool) {
+        return _pool[code].isVerified;
+    }
+
+    function getCodeStatus(uint256 code) public view returns(CodeStatus) {
+        if (_pool[code].isBlocked) {
+            return CodeStatus.Blocked;
+        }
+
+        if (_exists(code) && (block.timestamp < _pool[code].subscriptionEndTime)) {
+            return CodeStatus.Active;
+        }
+
+        if (_exists(code) && (block.timestamp < _pool[code].holdEndTime)) {
+            return CodeStatus.Held;
+        }
+
+        return CodeStatus.AvailableForMinting;
+    }
+
+    function getCodeStatuses() public view returns(CodeStatus[POOL_SIZE] memory) {
+        CodeStatus[POOL_SIZE] memory statuses;
+        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
+            statuses[code] = getCodeStatus(code);
+        }
+        return statuses;
+    }
+
+    function getPoolCodes() public view returns(bool[POOL_SIZE] memory) {
+        bool[POOL_SIZE] memory poolCodes;
+        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
+            poolCodes[code] = ((getCodeStatus(code) == CodeStatus.Active) && (_pool[code].mode == CodeMode.Pool));
+        }
+        return poolCodes;
+    }
+
+    function getOwnerCodes(address adr) public view returns(bool[POOL_SIZE] memory) {
+        bool[POOL_SIZE] memory ownerCodes;
+        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
+            ownerCodes[code] = _isApprovedOrOwner(adr, code);
+        }
+        return ownerCodes;
+    }
+
+
+    
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
 
     function withdraw() external onlyOwner {
