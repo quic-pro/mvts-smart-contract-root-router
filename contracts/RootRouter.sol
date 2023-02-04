@@ -12,7 +12,6 @@ contract RootRouter is ERC721, Ownable {
     using SafeMath for uint256;
 
 
-
     // ----- CUSTOM TYPES ----------------------------------------------------------------------------------------------
 
     enum CodeMode {Number, Pool}
@@ -54,7 +53,6 @@ contract RootRouter is ERC721, Ownable {
     }
 
 
-
     // ----- SETTINGS --------------------------------------------------------------------------------------------------
 
     uint256 public mintPrice = 10 ether;
@@ -70,13 +68,11 @@ contract RootRouter is ERC721, Ownable {
     address public verificationOperator;
 
 
-
     // ----- DATA ------------------------------------------------------------------------------------------------------
 
     uint256 constant public POOL_SIZE = 1000;
 
     Code[POOL_SIZE] private _pool;
-
 
 
     // ----- CONSTRUCTOR -----------------------------------------------------------------------------------------------
@@ -86,7 +82,6 @@ contract RootRouter is ERC721, Ownable {
             _pool[code].isBlocked = true;
         }
     }
-
 
 
     // ----- INTERNAL UTILS --------------------------------------------------------------------------------------------
@@ -117,7 +112,6 @@ contract RootRouter is ERC721, Ownable {
         _pool[code].subscriptionEndTime = newSubscriptionEndTime;
         _pool[code].holdEndTime = newHoldEndTime;
     }
-
 
 
     // ----- MODIFIERS -------------------------------------------------------------------------------------------------
@@ -161,7 +155,6 @@ contract RootRouter is ERC721, Ownable {
         require(_pool[code].mode == CodeMode.Pool, "Invalid code mode!");
         _;
     }
-
 
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
@@ -243,7 +236,6 @@ contract RootRouter is ERC721, Ownable {
     }
 
 
-    
     // ----- SMART CONTRACT MANAGEMENT ---------------------------------------------------------------------------------
 
     function withdraw() external onlyOwner {
@@ -309,7 +301,6 @@ contract RootRouter is ERC721, Ownable {
     function setCodeHoldEndTime(uint256 code, uint256 newHoldEndTime) onlyValidCode(code) external onlyOwner {
         _setCodeSubscription(code, _pool[code].subscriptionEndTime, newHoldEndTime);
     }
-
 
 
     // ----- CODE MANAGEMENT -------------------------------------------------------------------------------------------
@@ -432,7 +423,6 @@ contract RootRouter is ERC721, Ownable {
     {
         delete _pool[code].router;
     }
-
 
 
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
