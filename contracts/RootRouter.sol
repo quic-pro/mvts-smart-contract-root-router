@@ -91,11 +91,11 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
-    function hasOwner(uint256 code) onlyValidCode(code) public view returns (bool) {
+    function hasOwner(uint256 code) onlyValidCode(code) public view returns(bool) {
         return (_exists(code) && (block.timestamp < _pool[code].holdEndTime));
     }
 
-    function getCodeData(uint256 code) onlyValidCode(code) public view returns (CodeData memory) {
+    function getCodeData(uint256 code) onlyValidCode(code) public view returns(CodeData memory) {
         if (hasOwner(code)) {
             return CodeData({
                 status: getCodeStatus(code),
@@ -127,7 +127,7 @@ contract RootRouter is ERC721, Ownable {
         return _pool[code].isVerified;
     }
 
-    function getCodeStatus(uint256 code) public view returns (CodeStatus) {
+    function getCodeStatus(uint256 code) public view returns(CodeStatus) {
         if (_pool[code].isBlocked) {
             return CodeStatus.Blocked;
         }
@@ -143,7 +143,7 @@ contract RootRouter is ERC721, Ownable {
         return CodeStatus.AvailableForMinting;
     }
 
-    function getCodeStatuses() public view returns (CodeStatus[POOL_SIZE] memory) {
+    function getCodeStatuses() public view returns(CodeStatus[POOL_SIZE] memory) {
         CodeStatus[POOL_SIZE] memory statuses;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             statuses[code] = getCodeStatus(code);
@@ -151,7 +151,7 @@ contract RootRouter is ERC721, Ownable {
         return statuses;
     }
 
-    function getPoolCodes() public view returns (bool[POOL_SIZE] memory) {
+    function getPoolCodes() public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory poolCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             poolCodes[code] = ((getCodeStatus(code) == CodeStatus.Active) && (_pool[code].mode == CodeMode.Pool));
@@ -159,7 +159,7 @@ contract RootRouter is ERC721, Ownable {
         return poolCodes;
     }
 
-    function getOwnerCodes(address adr) public view returns (bool[POOL_SIZE] memory) {
+    function getOwnerCodes(address adr) public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory ownerCodes;
         for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
             ownerCodes[code] = _isApprovedOrOwner(adr, code);
@@ -171,19 +171,19 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- INTERNAL UTILS --------------------------------------------------------------------------------------------
 
-    function _baseURI() internal view override returns (string memory) {
+    function _baseURI() internal view override returns(string memory) {
         return baseUri;
     }
 
-    function _isValidCode(uint256 code) internal pure returns (bool) {
+    function _isValidCode(uint256 code) internal pure returns(bool) {
         return (code < POOL_SIZE);
     }
 
-    function _isApprovedOrOwner(address adr, uint256 code) internal view override returns (bool) {
+    function _isApprovedOrOwner(address adr, uint256 code) internal view override returns(bool) {
         return (hasOwner(code) && ERC721._isApprovedOrOwner(adr, code));
     }
 
-    function _createNodeDataWithResponseCode(uint256 responseCode) internal view returns (NodeData memory) {
+    function _createNodeDataWithResponseCode(uint256 responseCode) internal view returns(NodeData memory) {
         NodeData memory nodeData;
         nodeData.ttl = ttl;
         nodeData.responseCode = responseCode;
@@ -437,7 +437,7 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
-    function getNodeData(uint256 code) public view returns (NodeData memory) {
+    function getNodeData(uint256 code) public view returns(NodeData memory) {
         if (!_isValidCode(code)) return _createNodeDataWithResponseCode(400);
         if (getCodeStatus(code) == CodeStatus.Blocked) return _createNodeDataWithResponseCode(400);
         if (getCodeStatus(code) == CodeStatus.Held) return _createNodeDataWithResponseCode(400);
