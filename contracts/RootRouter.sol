@@ -429,8 +429,6 @@ contract RootRouter is ERC721, Ownable {
 
     function getNodeData(uint256 code) public view returns(NodeData memory) {
         if (!_isValidCode(code)) return _createNodeDataWithResponseCode(400);
-        if (getCodeStatus(code) == CodeStatus.Blocked) return _createNodeDataWithResponseCode(400);
-        if (getCodeStatus(code) == CodeStatus.Held) return _createNodeDataWithResponseCode(400);
         if (getCodeStatus(code) != CodeStatus.Active) return _createNodeDataWithResponseCode(400);
 
         if (_pool[code].mode == CodeMode.Number) {
