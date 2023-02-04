@@ -91,14 +91,11 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- PUBLIC UTILS ----------------------------------------------------------------------------------------------
 
-    function hasOwner(uint256 code) public view returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
+    function hasOwner(uint256 code) onlyValidCode(code) public view returns (bool) {
         return (_exists(code) && (block.timestamp < _pool[code].holdEndTime));
     }
 
-    function getCodeData(uint256 code) public view returns (CodeData memory) {
-        require(_isValidCode(code), "Invalid code!");
-
+    function getCodeData(uint256 code) onlyValidCode(code) public view returns (CodeData memory) {
         if (hasOwner(code)) {
             return CodeData({
                 status: getCodeStatus(code),
@@ -126,8 +123,7 @@ contract RootRouter is ERC721, Ownable {
         }
     }
 
-    function isVerified(uint256 code) public view returns (bool) {
-        require(_isValidCode(code), "Invalid code!");
+    function isVerified(uint256 code) public view onlyValidCode(code) returns(bool) {
         return _pool[code].isVerified;
     }
 
@@ -187,10 +183,6 @@ contract RootRouter is ERC721, Ownable {
         return (hasOwner(code) && ERC721._isApprovedOrOwner(adr, code));
     }
 
-    function _checkPayment(uint256 expected, uint256 received) internal view returns (bool) {
-        return ((received >= expected) || (_msgSender() == owner()));
-    }
-
     function _createNodeDataWithResponseCode(uint256 responseCode) internal view returns (NodeData memory) {
         NodeData memory nodeData;
         nodeData.ttl = ttl;
@@ -199,12 +191,55 @@ contract RootRouter is ERC721, Ownable {
         return nodeData;
     }
 
-    function _setCodeSubscription(uint256 code, uint256 newSubscriptionEndTime, uint256 newHoldEndTime) internal {
-        require(_isValidCode(code), "Invalid code!");
+    function _setCodeSubscription(uint256 code, uint256 newSubscriptionEndTime, uint256 newHoldEndTime) onlyValidCode(code) internal {
         require(newHoldEndTime >= newSubscriptionEndTime, "Invalid newHoldEndTime!");
 
         _pool[code].subscriptionEndTime = newSubscriptionEndTime;
         _pool[code].holdEndTime = newHoldEndTime;
+    }
+
+
+
+    // ----- MODIFIERS -------------------------------------------------------------------------------------------------
+
+    modifier paid(uint256 expected) {
+        require((msg.value >= expected) || (_msgSender() == owner()), "Insufficient funds!");
+        _;
+    }
+
+    modifier onlyValidCode(uint256 code) {
+        require(_isValidCode(code), "Invalid code!");
+        _;
+    }
+
+    modifier onlyCodeOwner(uint256 code) {
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
+        _;
+    }
+
+    modifier onlyVerificationOperator() {
+        require((_msgSender() == owner()) || (_msgSender() == verificationOperator), "Insufficient rights!");
+        _;
+    }
+
+    modifier onlyAvailableForMinting(uint256 code) {
+        require(getCodeStatus(code) == CodeStatus.AvailableForMinting, "The code is not available for minting!");
+        _;
+    }
+
+    modifier onlyActiveCode(uint256 code) {
+        require(getCodeStatus(code) == CodeStatus.Active, "The code is not active!");
+        _;
+    }
+
+    modifier onlyNumber(uint256 code) {
+        require(_pool[code].mode == CodeMode.Number, "Invalid code mode!");
+        _;
+    }
+
+    modifier onlyPool(uint256 code) {
+        require(_pool[code].mode == CodeMode.Pool, "Invalid code mode!");
+        _;
     }
 
 
@@ -252,33 +287,26 @@ contract RootRouter is ERC721, Ownable {
         verificationOperator = newVerificationOperator;
     }
 
-    function setCodeBlockedStatus(uint256 code, bool newBlockedStatus) external onlyOwner {
-        require(_isValidCode(code), "Invalid code!");
+    function setCodeBlockedStatus(uint256 code, bool newBlockedStatus) onlyValidCode(code) external onlyOwner {
         _pool[code].isBlocked = newBlockedStatus;
     }
 
-    function setCodeVerifiedStatus(uint256 code, bool newVerifiedStatus) external {
-        require((_msgSender() == owner()) || (_msgSender() == verificationOperator), "Insufficient rights!");
-        require(_isValidCode(code), "Invalid code!");
+    function setCodeVerifiedStatus(uint256 code, bool newVerifiedStatus) onlyValidCode(code) onlyVerificationOperator external {
         _pool[code].isVerified = newVerifiedStatus;
     }
 
-    function setCodeSubscription(uint256 code, uint256 newSubscriptionEndTime, uint256 newHoldEndTime) external onlyOwner {
-        require(_isValidCode(code), "Invalid code!");
+    function setCodeSubscription(uint256 code, uint256 newSubscriptionEndTime, uint256 newHoldEndTime) onlyValidCode(code) external onlyOwner {
         _setCodeSubscription(code, newSubscriptionEndTime, newHoldEndTime);
     }
 
-    function setCodeSubscriptionEndTime(uint256 code, uint256 newSubscriptionEndTime) external onlyOwner {
-        require(_isValidCode(code), "Invalid code!");
-
+    function setCodeSubscriptionEndTime(uint256 code, uint256 newSubscriptionEndTime) onlyValidCode(code) external onlyOwner {
         uint256 currentHoldDuration = _pool[code].holdEndTime.sub(_pool[code].subscriptionEndTime);
         uint256 newHoldEndTime = newSubscriptionEndTime.add(currentHoldDuration);
 
         _setCodeSubscription(code, newSubscriptionEndTime, newHoldEndTime);
     }
 
-    function setCodeHoldEndTime(uint256 code, uint256 newHoldEndTime) external onlyOwner {
-        require(_isValidCode(code), "Invalid code!");
+    function setCodeHoldEndTime(uint256 code, uint256 newHoldEndTime) onlyValidCode(code) external onlyOwner {
         _setCodeSubscription(code, _pool[code].subscriptionEndTime, newHoldEndTime);
     }
 
@@ -286,11 +314,13 @@ contract RootRouter is ERC721, Ownable {
 
     // ----- CODE MANAGEMENT -------------------------------------------------------------------------------------------
 
-    function mint(uint256 code) external payable {
-        require(_isValidCode(code), "Invalid code!");
-        require(getCodeStatus(code) == CodeStatus.AvailableForMinting, "Not available for minting!");
-        require(_checkPayment(mintPrice, msg.value), "Insufficient funds!");
-
+    function mint(uint256 code)
+        paid(mintPrice)
+        onlyValidCode(code)
+        onlyAvailableForMinting(code)
+        external
+        payable
+    {
         if (_exists(code)) {
             _burn(code);
         }
@@ -301,44 +331,55 @@ contract RootRouter is ERC721, Ownable {
         _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdDuration);
     }
 
-    function renewSubscription(uint256 code) external payable {
-        require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(_checkPayment(subscriptionPrice, msg.value), "Insufficient funds!");
-
+    function renewSubscription(uint256 code)
+        paid(subscriptionPrice)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        external
+        payable
+    {
         _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime.add(subscriptionDuration);
         _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdDuration);
     }
 
-    function transferFrom(address from, address to, uint256 tokenId) public virtual override {
-        require(_isValidCode(tokenId), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), tokenId) || ((_msgSender() == owner()) && hasOwner(tokenId)), "Insufficient rights!");
-
-        _transfer(from, to, tokenId);
-        _pool[tokenId].isVerified = false;
+    function transferFrom(address from, address to, uint256 code)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        public
+        virtual
+        override
+    {
+        _transfer(from, to, code);
+        _pool[code].isVerified = false;
     }
 
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public virtual override {
-        require(_isValidCode(tokenId), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), tokenId) || ((_msgSender() == owner()) && hasOwner(tokenId)), "Insufficient rights!");
-
-        _safeTransfer(from, to, tokenId, data);
-        _pool[tokenId].isVerified = false;
+    function safeTransferFrom(address from, address to, uint256 code, bytes memory data)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        public
+        virtual
+        override
+    {
+        _safeTransfer(from, to, code, data);
+        _pool[code].isVerified = false;
     }
 
-    function renounceOwnershipOfCode(uint256 code) external {
-        require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-
+    function renounceOwnershipOfCode(uint256 code)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        external
+    {
         _burn(code);
         delete _pool[code];
     }
 
-    function changeCodeMode(uint256 code) external payable {
-        require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(_checkPayment(modeChangePrice, msg.value), "Insufficient funds!");
-
+    function changeCodeMode(uint256 code)
+        paid(modeChangePrice)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        external
+        payable
+    {
         if (_pool[code].mode == CodeMode.Number) {
             _pool[code].mode = CodeMode.Pool;
             delete _pool[code].sipDomain;
@@ -348,30 +389,33 @@ contract RootRouter is ERC721, Ownable {
         }
     }
 
-    function setCodeSipDomain(uint256 code, string memory newSipDomain) external {
-        require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
-        require(_pool[code].mode == CodeMode.Number, "Invalid code mode!");
-
+    function setCodeSipDomain(uint256 code, string memory newSipDomain)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        onlyNumber(code)
+        onlyActiveCode(code)
+        external
+    {
         _pool[code].sipDomain = newSipDomain;
     }
 
-    function clearCodeSipDomain(uint256 code) external {
-        require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
-        require(_pool[code].mode == CodeMode.Number, "Invalid code mode!");
-
+    function clearCodeSipDomain(uint256 code)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        onlyNumber(code)
+        onlyActiveCode(code)
+        external
+    {
         delete _pool[code].sipDomain;
     }
 
-    function setCodeRouter(uint256 code, uint256 newChainId, string memory newAdr, uint256 newPoolCodeLength) external {
-        require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
-        require(_pool[code].mode == CodeMode.Pool, "Invalid code mode!");
-
+    function setCodeRouter(uint256 code, uint256 newChainId, string memory newAdr, uint256 newPoolCodeLength)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        onlyPool(code)
+        onlyActiveCode(code)
+        external
+    {
         _pool[code].router = Router({
             chainId: newChainId,
             poolCodeLength: newPoolCodeLength,
@@ -379,12 +423,13 @@ contract RootRouter is ERC721, Ownable {
         });
     }
 
-    function clearCodeRouter(uint256 code) external {
-        require(_isValidCode(code), "Invalid code!");
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
-        require(getCodeStatus(code) != CodeStatus.Blocked, "Code blocked!");
-        require(_pool[code].mode == CodeMode.Pool, "Invalid code mode!");
-
+    function clearCodeRouter(uint256 code)
+        onlyValidCode(code)
+        onlyCodeOwner(code)
+        onlyPool(code)
+        onlyActiveCode(code)
+        external
+    {
         delete _pool[code].router;
     }
 
