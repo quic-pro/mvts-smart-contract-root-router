@@ -4,14 +4,10 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 
 contract RootRouter is ERC721, Ownable {
-    using SafeMath for uint256;
-
-
     // ----- CUSTOM TYPES ----------------------------------------------------------------------------------------------
 
     enum CodeMode {Number, Pool}
@@ -78,7 +74,7 @@ contract RootRouter is ERC721, Ownable {
     // ----- CONSTRUCTOR -----------------------------------------------------------------------------------------------
 
     constructor() ERC721("MetaVerse Telecom Service", "MVTS") {
-        for (uint256 code; code < 100; code = code.add(1)) {
+        for (uint256 code; code < 100; ++code) {
             _pool[code].isBlocked = true;
         }
     }
@@ -213,7 +209,7 @@ contract RootRouter is ERC721, Ownable {
 
     function getCodeStatuses() public view returns(CodeStatus[POOL_SIZE] memory) {
         CodeStatus[POOL_SIZE] memory statuses;
-        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
+        for (uint256 code; code < POOL_SIZE; ++code) {
             statuses[code] = getCodeStatus(code);
         }
         return statuses;
@@ -221,7 +217,7 @@ contract RootRouter is ERC721, Ownable {
 
     function getPoolCodes() public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory poolCodes;
-        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
+        for (uint256 code; code < POOL_SIZE; ++code) {
             poolCodes[code] = ((getCodeStatus(code) == CodeStatus.Active) && (_pool[code].mode == CodeMode.Pool));
         }
         return poolCodes;
@@ -229,7 +225,7 @@ contract RootRouter is ERC721, Ownable {
 
     function getOwnerCodes(address adr) public view returns(bool[POOL_SIZE] memory) {
         bool[POOL_SIZE] memory ownerCodes;
-        for (uint256 code; code < POOL_SIZE; code = code.add(1)) {
+        for (uint256 code; code < POOL_SIZE; ++code) {
             ownerCodes[code] = _isApprovedOrOwner(adr, code);
         }
         return ownerCodes;
@@ -292,8 +288,8 @@ contract RootRouter is ERC721, Ownable {
     }
 
     function setCodeSubscriptionEndTime(uint256 code, uint256 newSubscriptionEndTime) onlyValidCode(code) external onlyOwner {
-        uint256 currentHoldDuration = _pool[code].holdEndTime.sub(_pool[code].subscriptionEndTime);
-        uint256 newHoldEndTime = newSubscriptionEndTime.add(currentHoldDuration);
+        uint256 currentHoldDuration = _pool[code].holdEndTime - _pool[code].subscriptionEndTime;
+        uint256 newHoldEndTime = newSubscriptionEndTime + currentHoldDuration;
 
         _setCodeSubscription(code, newSubscriptionEndTime, newHoldEndTime);
     }
@@ -318,8 +314,8 @@ contract RootRouter is ERC721, Ownable {
         _safeMint(_msgSender(), code);
 
         delete _pool[code];
-        _pool[code].subscriptionEndTime = block.timestamp.add(subscriptionDuration);
-        _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdDuration);
+        _pool[code].subscriptionEndTime = block.timestamp + subscriptionDuration;
+        _pool[code].holdEndTime = _pool[code].subscriptionEndTime + holdDuration;
     }
 
     function renewSubscription(uint256 code)
@@ -329,8 +325,8 @@ contract RootRouter is ERC721, Ownable {
         external
         payable
     {
-        _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime.add(subscriptionDuration);
-        _pool[code].holdEndTime = _pool[code].subscriptionEndTime.add(holdDuration);
+        _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime + subscriptionDuration;
+        _pool[code].holdEndTime = _pool[code].subscriptionEndTime + holdDuration;
     }
 
     function transferFrom(address from, address to, uint256 code)
