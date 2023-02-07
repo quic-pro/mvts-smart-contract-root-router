@@ -113,42 +113,42 @@ contract RootRouter is ERC721, Ownable {
     // ----- MODIFIERS -------------------------------------------------------------------------------------------------
 
     modifier paid(uint256 expected) {
-        require((msg.value >= expected) || (_msgSender() == owner()), "Insufficient funds!");
+        require((msg.value >= expected) || (_msgSender() == owner()), "Insufficient funds");
         _;
     }
 
     modifier onlyValidCode(uint256 code) {
-        require(_isValidCode(code), "Invalid code!");
+        require(_isValidCode(code), "Invalid code");
         _;
     }
 
     modifier onlyCodeOwner(uint256 code) {
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights!");
+        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights");
         _;
     }
 
     modifier onlyVerificationOperator() {
-        require((_msgSender() == owner()) || (_msgSender() == verificationOperator), "Insufficient rights!");
+        require((_msgSender() == owner()) || (_msgSender() == verificationOperator), "Insufficient rights");
         _;
     }
 
     modifier onlyAvailableForMinting(uint256 code) {
-        require(getCodeStatus(code) == CodeStatus.AvailableForMinting, "The code is not available for minting!");
+        require(getCodeStatus(code) == CodeStatus.AvailableForMinting, "Code is not available for minting");
         _;
     }
 
     modifier onlyActiveCode(uint256 code) {
-        require(getCodeStatus(code) == CodeStatus.Active, "The code is not active!");
+        require(getCodeStatus(code) == CodeStatus.Active, "Code is not active");
         _;
     }
 
     modifier onlyNumber(uint256 code) {
-        require(_pool[code].mode == CodeMode.Number, "Invalid code mode!");
+        require(_pool[code].mode == CodeMode.Number, "Invalid code mode");
         _;
     }
 
     modifier onlyPool(uint256 code) {
-        require(_pool[code].mode == CodeMode.Pool, "Invalid code mode!");
+        require(_pool[code].mode == CodeMode.Pool, "Invalid code mode");
         _;
     }
 

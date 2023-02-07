@@ -45,12 +45,12 @@ describe('RootRouter', () => {
     const POOL_SIZE = 1000;
 
     // Reasons
-    const REASON_INVALID_CODE = 'Invalid code!';
-    const REASON_NOT_AVAILABLE_FOR_MINTING = 'Not available for minting!';
-    const REASON_INSUFFICIENT_FUNDS = 'Insufficient funds!';
-    const REASON_INSUFFICIENT_RIGHTS = 'Insufficient rights!';
-    const REASON_CODE_BLOCKED = 'Code blocked!';
-    const REASON_INVALID_CODE_MODE = 'Invalid code mode!';
+    const REASON_INVALID_CODE = 'Invalid code';
+    const REASON_CODE_IS_NOT_AVAILABLE_FOR_MINTING = 'Code is not available for minting';
+    const REASON_INSUFFICIENT_FUNDS = 'Insufficient funds';
+    const REASON_INSUFFICIENT_RIGHTS = 'Insufficient rights';
+    const REASON_CODE_IS_NOT_ACTIVE = 'Code is not active';
+    const REASON_INVALID_CODE_MODE = 'Invalid code mode';
     const REASON_CALLER_IS_NOT_THE_OWNER = 'Ownable: caller is not the owner';
 
 
@@ -605,7 +605,7 @@ describe('RootRouter', () => {
         const code = 100;
 
         await rootRouter.setCodeBlockedStatus(code, true);
-        await expect(rootRouter.mint(code)).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
+        await expect(rootRouter.mint(code)).to.revertedWith(REASON_CODE_IS_NOT_AVAILABLE_FOR_MINTING);
     });
 
     it('Method mint: if the code has an owner', async () => {
@@ -613,7 +613,7 @@ describe('RootRouter', () => {
         const code = 100;
 
         await rootRouter.mint(code);
-        await expect(rootRouter.mint(code)).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
+        await expect(rootRouter.mint(code)).to.revertedWith(REASON_CODE_IS_NOT_AVAILABLE_FOR_MINTING);
     });
 
     it('Method mint: if the code is blocked and has an owner', async () => {
@@ -622,7 +622,7 @@ describe('RootRouter', () => {
 
         await rootRouter.mint(code);
         await rootRouter.setCodeBlockedStatus(code, true);
-        await expect(rootRouter.mint(code)).to.revertedWith(REASON_NOT_AVAILABLE_FOR_MINTING);
+        await expect(rootRouter.mint(code)).to.revertedWith(REASON_CODE_IS_NOT_AVAILABLE_FOR_MINTING);
     });
 
     it('Method mint: if insufficient funds', async () => {
@@ -860,7 +860,7 @@ describe('RootRouter', () => {
         await rootRouter.mint(code);
         await rootRouter.setCodeBlockedStatus(code, true);
 
-        await expect(rootRouter.setCodeSipDomain(code, newSipDomain)).to.revertedWith(REASON_CODE_BLOCKED);
+        await expect(rootRouter.setCodeSipDomain(code, newSipDomain)).to.revertedWith(REASON_CODE_IS_NOT_ACTIVE);
     });
 
     it('Method setCodeSipDomain: if the code mode is invalid', async () => {
@@ -914,7 +914,7 @@ describe('RootRouter', () => {
         await rootRouter.mint(code);
         await rootRouter.setCodeBlockedStatus(code, true);
 
-        await expect(rootRouter.clearCodeSipDomain(code)).to.revertedWith(REASON_CODE_BLOCKED);
+        await expect(rootRouter.clearCodeSipDomain(code)).to.revertedWith(REASON_CODE_IS_NOT_ACTIVE);
     });
 
     it('Method clearCodeSipDomain: if the code mode is invalid', async () => {
@@ -977,7 +977,7 @@ describe('RootRouter', () => {
         await rootRouter.changeCodeMode(code);
         await rootRouter.setCodeBlockedStatus(code, true);
 
-        await expect(rootRouter.setCodeRouter(code, newChainId, newAdr, newPoolCodeLength)).to.revertedWith(REASON_CODE_BLOCKED);
+        await expect(rootRouter.setCodeRouter(code, newChainId, newAdr, newPoolCodeLength)).to.revertedWith(REASON_CODE_IS_NOT_ACTIVE);
     });
 
     it('Method setCodeRouter: if the code mode is invalid', async () => {
@@ -1039,7 +1039,7 @@ describe('RootRouter', () => {
         await rootRouter.mint(code);
         await rootRouter.setCodeBlockedStatus(code, true);
 
-        await expect(rootRouter.clearCodeRouter(code)).to.revertedWith(REASON_CODE_BLOCKED);
+        await expect(rootRouter.clearCodeRouter(code)).to.revertedWith(REASON_CODE_IS_NOT_ACTIVE);
     });
 
     it('Method clearCodeRouter: if the code mode is invalid', async () => {
