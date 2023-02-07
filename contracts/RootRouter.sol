@@ -162,27 +162,27 @@ contract RootRouter is ERC721, Ownable {
     function getCodeData(uint256 code) onlyValidCode(code) public view returns(CodeData memory) {
         if (hasOwner(code)) {
             return CodeData({
-            status: getCodeStatus(code),
-            isVerified: _pool[code].isVerified,
-            subscriptionEndTime: _pool[code].subscriptionEndTime,
-            holdEndTime: _pool[code].holdEndTime,
-            mode: _pool[code].mode,
-            sipDomain: (bytes(_pool[code].sipDomain).length == 0) ? defaultSipDomain : _pool[code].sipDomain,
-            router: _pool[code].router
+                status: getCodeStatus(code),
+                isVerified: _pool[code].isVerified,
+                subscriptionEndTime: _pool[code].subscriptionEndTime,
+                holdEndTime: _pool[code].holdEndTime,
+                mode: _pool[code].mode,
+                sipDomain: (bytes(_pool[code].sipDomain).length == 0) ? defaultSipDomain : _pool[code].sipDomain,
+                router: _pool[code].router
             });
         } else {
             return CodeData({
-            status: getCodeStatus(code),
-            isVerified: false,
-            subscriptionEndTime: 0,
-            holdEndTime: 0,
-            mode: CodeMode.Number,
-            sipDomain: "",
-            router: Router({
-            chainId: 0,
-            poolCodeLength: 0,
-            adr: ""
-            })
+                status: getCodeStatus(code),
+                isVerified: false,
+                subscriptionEndTime: 0,
+                holdEndTime: 0,
+                mode: CodeMode.Number,
+                sipDomain: "",
+                router: Router({
+                    chainId: 0,
+                    poolCodeLength: 0,
+                    adr: ""
+                })
             });
         }
     }
