@@ -946,7 +946,6 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(owner).setCodeSipDomain(code, newSipDomain)).not.to.be.reverted;
         expectCodeData(await rootRouter.getCodeData(code), {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
-            hasSipDomain: true,
             sipDomain: newSipDomain
         });
     });
@@ -980,7 +979,6 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(codeOwner).setCodeSipDomain(code, newSipDomain)).not.to.be.reverted;
         expectCodeData(await rootRouter.getCodeData(code), {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
-            hasSipDomain: true,
             sipDomain: newSipDomain
         });
     });
@@ -1057,8 +1055,6 @@ describe('RootRouter', () => {
         expectCodeData(await rootRouter.getCodeData(code), {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
             mode: CodeMode.Pool,
-            hasRouter: true,
-            // @ts-ignore
             router: {
                 chainId: newChainId,
                 adr: newAdr,
@@ -1098,8 +1094,6 @@ describe('RootRouter', () => {
         expectCodeData(await rootRouter.getCodeData(code), {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
             mode: CodeMode.Pool,
-            hasRouter: true,
-            // @ts-ignore
             router: {
                 chainId: newChainId,
                 adr: newAdr,
