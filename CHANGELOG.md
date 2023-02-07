@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.1](https://github.com/quic-pro/mvts-smart-contract-root-router/releases/tag/1.0.1) (2023-02-07)
+
+### Changed
+
+- feat: replace response code with enum
+
+### Docs
+
+- docs: fix changelog
+
+### Chores
+
+- chore: bump version to 1.0.1
+
+### Tests
+
+- test: fix typescript errors
+- test: add setCodeSubscription method test
+
 ## [1.0.0](https://github.com/quic-pro/mvts-smart-contract-root-router/releases/tag/1.0.0) (2023-02-07)
 
 ### Changed
