@@ -187,10 +187,6 @@ contract RootRouter is ERC721, Ownable {
         }
     }
 
-    function isVerified(uint256 code) public view onlyValidCode(code) returns(bool) {
-        return _pool[code].isVerified;
-    }
-
     function getCodeStatus(uint256 code) public view returns(CodeStatus) {
         if (_pool[code].isBlocked) {
             return CodeStatus.Blocked;
