@@ -252,7 +252,7 @@ describe('RootRouter', () => {
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
             holdEndTime: await getEndTime(SUBSCRIPTION_DURATION.add(HOLD_DURATION)),
             mode: CodeMode.Number,
-            sipDomain: '',
+            sipDomain: DEFAULT_SIP_DOMAIN,
             router: {
                 chainId: Zero,
                 poolCodeLength: Zero,
