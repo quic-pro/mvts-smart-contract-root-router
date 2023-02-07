@@ -64,7 +64,7 @@ describe('RootRouter', () => {
         return {
             rootRouter,
             owner,
-            accounts
+            accounts,
         };
     }
 
@@ -164,6 +164,7 @@ describe('RootRouter', () => {
         const code = 100;
 
         await rootRouter.mint(code);
+
         expect(await rootRouter.tokenURI(code)).to.equal(BASE_URI + code);
     });
 
@@ -188,6 +189,7 @@ describe('RootRouter', () => {
         const code = 100;
 
         await rootRouter.mint(code);
+
         expect(await rootRouter.hasOwner(code)).to.true;
     });
 
@@ -197,6 +199,7 @@ describe('RootRouter', () => {
 
         await rootRouter.mint(code);
         await rootRouter.setCodeSubscriptionEndTime(code, await time.latest());
+
         expect(await rootRouter.hasOwner(code)).to.true;
     });
 
@@ -206,7 +209,8 @@ describe('RootRouter', () => {
 
         await rootRouter.mint(code);
         await rootRouter.setCodeSubscriptionEndTime(code, await time.latest());
-        await rootRouter.setCodeHoldEndTime(code, Zero);
+        await rootRouter.setCodeHoldEndTime(code, await time.latest());
+
         expect(await rootRouter.hasOwner(code)).to.false;
     });
 
@@ -216,20 +220,23 @@ describe('RootRouter', () => {
         await expect(rootRouter.getCodeData(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
     });
 
-    it('Method getCodeData: if the code is blocked', async () => {
-        const {rootRouter} = await loadFixture(deploy);
-        const code = 0;
-
-        expectCodeData(await rootRouter.getCodeData(code), {
-            status: CodeStatus.Blocked,
-        });
-    });
-
     it('Method getCodeData: if the code has no owner', async () => {
         const {rootRouter} = await loadFixture(deploy);
         const code = 100;
 
-        expectCodeData(await rootRouter.getCodeData(code));
+        expectCodeData(await rootRouter.getCodeData(code), {
+            status: CodeStatus.AvailableForMinting,
+            isVerified: false,
+            subscriptionEndTime: Zero,
+            holdEndTime: Zero,
+            mode: CodeMode.Number,
+            sipDomain: '',
+            router: {
+                chainId: Zero,
+                poolCodeLength: Zero,
+                adr: '',
+            },
+        });
     });
 
     it('Method getCodeData: if the code has an owner', async () => {
@@ -237,10 +244,19 @@ describe('RootRouter', () => {
         const code = 100;
 
         await rootRouter.mint(code);
+
         expectCodeData(await rootRouter.getCodeData(code), {
-            status: CodeStatus.AvailableForMinting,
+            status: CodeStatus.Active,
+            isVerified: false,
             subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
             holdEndTime: await getEndTime(SUBSCRIPTION_DURATION.add(HOLD_DURATION)),
+            mode: CodeMode.Number,
+            sipDomain: '',
+            router: {
+                chainId: Zero,
+                poolCodeLength: Zero,
+                adr: '',
+            },
         });
     });
 
@@ -250,10 +266,44 @@ describe('RootRouter', () => {
 
         await rootRouter.mint(code);
         await rootRouter.setCodeSubscriptionEndTime(code, await time.latest());
+
         expectCodeData(await rootRouter.getCodeData(code), {
             status: CodeStatus.Held,
-            subscriptionEndTime: await getEndTime(SUBSCRIPTION_DURATION),
-            holdEndTime: await getEndTime(SUBSCRIPTION_DURATION.add(HOLD_DURATION)),
+        });
+    });
+
+    it('Method getCodeData: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeBlockedStatus(100, true);
+
+        expectCodeData(await rootRouter.getCodeData(code), {
+            status: CodeStatus.Blocked,
+        });
+    });
+
+    it('Method getCodeData: if the code is a number', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+
+        expectCodeData(await rootRouter.getCodeData(code), {
+            mode: CodeMode.Number,
+        });
+    });
+
+    it('Method getCodeData: if the code is a pool', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.changeCodeMode(100);
+
+        expectCodeData(await rootRouter.getCodeData(code), {
+            mode: CodeMode.Pool,
         });
     });
 
@@ -261,14 +311,6 @@ describe('RootRouter', () => {
         const {rootRouter} = await loadFixture(deploy);
 
         await expect(rootRouter.getCodeStatus(POOL_SIZE)).to.revertedWith(REASON_INVALID_CODE);
-    });
-
-    it('Method getCodeStatus: if the code is blocked', async () => {
-        const {rootRouter} = await loadFixture(deploy);
-        const code = 100;
-
-        await rootRouter.setCodeBlockedStatus(code, true);
-        expect(await rootRouter.getCodeStatus(code)).to.equal(CodeStatus.Blocked);
     });
 
     it('Method getCodeStatus: if the code is available for minting', async () => {
@@ -283,6 +325,7 @@ describe('RootRouter', () => {
         const code = 100;
 
         await rootRouter.mint(code);
+
         expect(await rootRouter.getCodeStatus(code)).to.equal(CodeStatus.Active);
     });
 
@@ -292,18 +335,48 @@ describe('RootRouter', () => {
 
         await rootRouter.mint(code);
         await rootRouter.setCodeSubscriptionEndTime(code, await getEndTime(0));
+
         expect(await rootRouter.getCodeStatus(code)).to.equal(CodeStatus.Held);
+    });
+
+    it('Method getCodeStatus: if the code is blocked', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.setCodeBlockedStatus(code, true);
+
+        expect(await rootRouter.getCodeStatus(code)).to.equal(CodeStatus.Blocked);
+    });
+
+    it('Method getCodeStatus: if the subscription has ended', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const code = 100;
+
+        await rootRouter.mint(code);
+        await rootRouter.setCodeSubscriptionEndTime(code, await getEndTime(0));
+        await rootRouter.setCodeHoldEndTime(code, await getEndTime(0));
+
+        expect(await rootRouter.getCodeStatus(code)).to.equal(CodeStatus.AvailableForMinting);
     });
 
     it('Method getCodeStatuses', async () => {
         const {rootRouter} = await loadFixture(deploy);
-        const code = 100;
+        const activeCode = 100;
+        const heldCode = 200;
+        const availableForMintingCode = 300;
+        const blockedCode = 400;
+
+        await rootRouter.mint(activeCode);
+        await rootRouter.mint(heldCode);
+        await rootRouter.setCodeSubscriptionEndTime(heldCode, await getEndTime(0));
+        await rootRouter.setCodeBlockedStatus(blockedCode, true);
 
         const statuses = await rootRouter.getCodeStatuses();
         expect(statuses).to.length(POOL_SIZE);
-        for (let code = 0; code < POOL_SIZE; ++code) {
-            expect(statuses[code]).to.equal(code < 100 ? CodeStatus.Blocked : CodeStatus.AvailableForMinting);
-        }
+        expect(statuses[activeCode]).to.equal(CodeStatus.Active);
+        expect(statuses[heldCode]).to.equal(CodeStatus.Held);
+        expect(statuses[availableForMintingCode]).to.equal(CodeStatus.AvailableForMinting);
+        expect(statuses[blockedCode]).to.equal(CodeStatus.Blocked);
     });
 
     it('Method getPoolCodes', async () => {
