@@ -103,7 +103,7 @@ contract RootRouter is ERC721, Ownable {
     }
 
     function _setCodeSubscription(uint256 code, uint256 newSubscriptionEndTime, uint256 newHoldEndTime) onlyValidCode(code) internal {
-        require(newHoldEndTime >= newSubscriptionEndTime, "Invalid newHoldEndTime!");
+        require(newHoldEndTime >= newSubscriptionEndTime, "Invalid newHoldEndTime");
 
         _pool[code].subscriptionEndTime = newSubscriptionEndTime;
         _pool[code].holdEndTime = newHoldEndTime;
