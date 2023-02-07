@@ -77,6 +77,7 @@
 - Added hardhat-gas-reporter and hardhat-storage-layout plugins
 - Create .gitattributes
 - chore: update dependencies
+- chore: bump version to 1.0.0
 
 ### Tests
 
