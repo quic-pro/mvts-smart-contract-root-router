@@ -52,6 +52,7 @@ describe('RootRouter', () => {
     const REASON_CODE_IS_NOT_ACTIVE = 'Code is not active';
     const REASON_INVALID_CODE_MODE = 'Invalid code mode';
     const REASON_CALLER_IS_NOT_THE_OWNER = 'Ownable: caller is not the owner';
+    const REASON_INVALID_NEW_HOLD_END_TIME = 'Invalid newHoldEndTime';
 
 
     async function deploy() {
@@ -415,7 +416,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).withdraw()).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method withdraw: if caller is owner', async () => {
+    it('Method withdraw: if caller is the contract owner', async () => {
         const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
         const code = 100;
 
@@ -431,7 +432,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setMintPrice(newMintPrice)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setMintPrice: if caller is owner', async () => {
+    it('Method setMintPrice: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newMintPrice = parseEther('5');
 
@@ -461,7 +462,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setModeChangePrice(newModeChangePrice)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setModeChangePrice: if caller is owner', async () => {
+    it('Method setModeChangePrice: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newModeChangePrice = parseEther('3');
 
@@ -476,7 +477,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setSubscriptionDuration(newSubscriptionDuration)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setSubscriptionDuration: if caller is owner', async () => {
+    it('Method setSubscriptionDuration: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newSubscriptionDuration = parseEther('3');
 
@@ -491,7 +492,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setHoldDuration(newHoldingDuration)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setHoldDuration: if caller is owner', async () => {
+    it('Method setHoldDuration: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newHoldingDuration = parseEther('3');
 
@@ -506,7 +507,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setTtl(newTtl)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setTtl: if caller is owner', async () => {
+    it('Method setTtl: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newTtl = 3 * DAY;
 
@@ -521,7 +522,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setDefaultSipDomain(newDefaultSipDomain)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setDefaultSipDomain: if caller is owner', async () => {
+    it('Method setDefaultSipDomain: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newDefaultSipDomain = 'sip.test';
 
@@ -536,7 +537,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setBaseUri(newBaseUri)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setBaseUri: if caller is owner', async () => {
+    it('Method setBaseUri: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const newBaseUri = 'https://test.test/';
 
@@ -551,7 +552,7 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setVerificationOperator(newVerificationOperator)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setVerificationOperator: if caller is owner', async () => {
+    it('Method setVerificationOperator: if caller is the contract owner', async () => {
         const {rootRouter, owner, accounts: [client]} = await loadFixture(deploy);
         const newVerificationOperator = client.address;
 
@@ -573,15 +574,17 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setCodeBlockedStatus(code, newBlockedStatus)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setCodeBlockedStatus: if caller is owner', async () => {
+    it('Method setCodeBlockedStatus: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const code = 100, newBlockedStatus = true;
 
-        await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, newBlockedStatus)).not.to.be.reverted
-        expect(await rootRouter.isBlocked(code)).to.equal(newBlockedStatus);
+        await rootRouter.mint(code);
 
-        await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, !newBlockedStatus)).not.to.be.reverted
-        expect(await rootRouter.isBlocked(code)).to.equal(!newBlockedStatus);
+        await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, newBlockedStatus)).not.to.be.reverted;
+        expect(await rootRouter.getCodeStatus(code)).to.equal(CodeStatus.Blocked);
+
+        await expect(rootRouter.connect(owner).setCodeBlockedStatus(code, !newBlockedStatus)).not.to.be.reverted;
+        expect(await rootRouter.getCodeStatus(code)).to.equal(CodeStatus.Active);
     });
 
     it('Method setCodeVerifiedStatus: if code is invalid', async () => {
@@ -598,28 +601,31 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setCodeVerifiedStatus(code, newVerifiedStatus)).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
     });
 
-    it('Method setCodeVerifiedStatus: if caller is owner', async () => {
+    it('Method setCodeVerifiedStatus: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
         const code = 100, newVerifiedStatus = true;
 
-        await expect(rootRouter.connect(owner).setCodeVerifiedStatus(code, newVerifiedStatus)).not.to.be.reverted
-        expect(await rootRouter.isVerified(code)).to.equal(newVerifiedStatus);
+        await rootRouter.mint(code);
 
-        await expect(rootRouter.connect(owner).setCodeVerifiedStatus(code, !newVerifiedStatus)).not.to.be.reverted
-        expect(await rootRouter.isVerified(code)).to.equal(!newVerifiedStatus);
+        await expect(rootRouter.connect(owner).setCodeVerifiedStatus(code, newVerifiedStatus)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {isVerified: newVerifiedStatus});
+
+        await expect(rootRouter.connect(owner).setCodeVerifiedStatus(code, !newVerifiedStatus)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {isVerified: !newVerifiedStatus});
     });
 
     it('Method setCodeVerifiedStatus: if caller is verification operator', async () => {
-        const {rootRouter, owner, accounts: [verificationOperator]} = await loadFixture(deploy);
+        const {rootRouter, accounts: [verificationOperator]} = await loadFixture(deploy);
         const code = 100, newVerifiedStatus = true;
 
         await rootRouter.setVerificationOperator(verificationOperator.address);
+        await rootRouter.mint(code);
 
-        await expect(rootRouter.connect(verificationOperator).setCodeVerifiedStatus(code, newVerifiedStatus)).not.to.be.reverted
-        expect(await rootRouter.isVerified(code)).to.equal(newVerifiedStatus);
+        await expect(rootRouter.connect(verificationOperator).setCodeVerifiedStatus(code, newVerifiedStatus)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {isVerified: newVerifiedStatus});
 
-        await expect(rootRouter.connect(verificationOperator).setCodeVerifiedStatus(code, !newVerifiedStatus)).not.to.be.reverted
-        expect(await rootRouter.isVerified(code)).to.equal(!newVerifiedStatus);
+        await expect(rootRouter.connect(verificationOperator).setCodeVerifiedStatus(code, !newVerifiedStatus)).not.to.be.reverted;
+        expectCodeData(await rootRouter.getCodeData(code), {isVerified: !newVerifiedStatus});
     });
 
     it('Method setCodeSubscriptionEndTime: if code is invalid', async () => {
@@ -636,15 +642,15 @@ describe('RootRouter', () => {
         await expect(rootRouter.connect(client).setCodeSubscriptionEndTime(code, newSubscriptionEndTime)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setCodeSubscriptionEndTime: if caller is owner', async () => {
+    it('Method setCodeSubscriptionEndTime: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
-        const code = 100, newSubscriptionEndTime = await getEndTime(0);
+        const code = 100, newSubscriptionEndTime = await getEndTime(SUBSCRIPTION_DURATION.add(YEAR));
 
         await rootRouter.mint(code);
 
         await rootRouter.connect(owner).setCodeSubscriptionEndTime(code, newSubscriptionEndTime);
+
         expectCodeData(await rootRouter.getCodeData(code), {
-            status: CodeStatus.Active,
             subscriptionEndTime: newSubscriptionEndTime,
             holdEndTime: newSubscriptionEndTime.add(HOLD_DURATION),
         });
@@ -657,25 +663,30 @@ describe('RootRouter', () => {
         await expect(rootRouter.setCodeHoldEndTime(POOL_SIZE, newHoldEndTime)).to.revertedWith(REASON_INVALID_CODE);
     });
 
-    it('Method setCodeHoldEndTime: if caller is not the owner', async () => {
+    it('Method setCodeHoldEndTime: if caller is not the contract owner', async () => {
         const {rootRouter, accounts: [client]} = await loadFixture(deploy);
         const code = 100, newHoldEndTime = await getEndTime(0);
 
         await expect(rootRouter.connect(client).setCodeHoldEndTime(code, newHoldEndTime)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
     });
 
-    it('Method setCodeHoldEndTime: if caller is owner', async () => {
+    it('Method setCodeHoldEndTime: if caller is the contract owner', async () => {
         const {rootRouter, owner} = await loadFixture(deploy);
-        const code = 100, newHoldEndTime = await getEndTime(0);
+        const code = 100, newHoldEndTime = await getEndTime(SUBSCRIPTION_DURATION.add(YEAR));
 
         await rootRouter.mint(code);
-
         await rootRouter.connect(owner).setCodeHoldEndTime(code, newHoldEndTime);
-        expectCodeData(await rootRouter.getCodeData(code), {
-            status: CodeStatus.Active,
-            subscriptionEndTime: newHoldEndTime,
-            holdEndTime: newHoldEndTime,
-        });
+
+        expectCodeData(await rootRouter.getCodeData(code), {holdEndTime: newHoldEndTime});
+    });
+
+
+    it('Method setCodeHoldEndTime: if new hold end time is invalid', async () => {
+        const {rootRouter, owner} = await loadFixture(deploy);
+        const code = 100, newHoldEndTime = await getEndTime(SUBSCRIPTION_DURATION.sub(YEAR));
+
+        await rootRouter.mint(code);
+        await expect(rootRouter.connect(owner).setCodeHoldEndTime(code, newHoldEndTime)).to.revertedWith(REASON_INVALID_NEW_HOLD_END_TIME);
     });
 
 
