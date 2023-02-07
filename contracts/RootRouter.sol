@@ -321,7 +321,7 @@ contract RootRouter is ERC721, Ownable {
         external
         payable
     {
-        _pool[code].subscriptionEndTime = _pool[code].subscriptionEndTime + subscriptionDuration;
+        _pool[code].subscriptionEndTime += subscriptionDuration;
         _pool[code].holdEndTime = _pool[code].subscriptionEndTime + holdDuration;
     }
 
