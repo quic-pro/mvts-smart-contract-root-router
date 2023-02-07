@@ -14,6 +14,8 @@ contract RootRouter is ERC721, Ownable {
 
     enum CodeStatus {AvailableForMinting, Active, Held, Blocked}
 
+    enum Response {OK, ERROR}
+
     struct Router {
         uint256 chainId;
         uint256 poolCodeLength;
@@ -94,10 +96,10 @@ contract RootRouter is ERC721, Ownable {
         return (hasOwner(code) && ERC721._isApprovedOrOwner(adr, code));
     }
 
-    function _createNodeDataWithResponseCode(uint256 responseCode) internal view returns(NodeData memory) {
+    function _createNodeDataWithResponseCode(Response responseName) internal view returns(NodeData memory) {
         NodeData memory nodeData;
         nodeData.ttl = ttl;
-        nodeData.responseCode = responseCode;
+        nodeData.responseCode = _getResponseCode(responseName);
 
         return nodeData;
     }
@@ -107,6 +109,16 @@ contract RootRouter is ERC721, Ownable {
 
         _pool[code].subscriptionEndTime = newSubscriptionEndTime;
         _pool[code].holdEndTime = newHoldEndTime;
+    }
+
+    function _getResponseCode(Response responseName) internal pure returns(uint256) {
+        if (responseName == Response.OK) {
+            return 200;
+        } else if (responseName == Response.ERROR) {
+            return 400;
+        } else {
+            return 400;
+        }
     }
 
 
@@ -421,15 +433,15 @@ contract RootRouter is ERC721, Ownable {
     // ----- ROUTING ---------------------------------------------------------------------------------------------------
 
     function getNodeData(uint256 code) public view returns(NodeData memory) {
-        if (!_isValidCode(code)) return _createNodeDataWithResponseCode(400);
-        if (getCodeStatus(code) != CodeStatus.Active) return _createNodeDataWithResponseCode(400);
+        if (!_isValidCode(code)) return _createNodeDataWithResponseCode(Response.ERROR);
+        if (getCodeStatus(code) != CodeStatus.Active) return _createNodeDataWithResponseCode(Response.ERROR);
 
         if (_pool[code].mode == CodeMode.Number) {
             string memory sipDomain = (bytes(_pool[code].sipDomain).length == 0) ? defaultSipDomain : _pool[code].sipDomain;
             string memory codeOwner = Strings.toHexString(_ownerOf(code));
 
             return NodeData({
-                responseCode: 200,
+                responseCode: _getResponseCode(Response.OK),
                 ttl: ttl,
                 mode: _pool[code].mode,
                 sipUri: string(abi.encodePacked(codeOwner, "@", sipDomain)),
@@ -437,7 +449,7 @@ contract RootRouter is ERC721, Ownable {
             });
         } else {
             return NodeData({
-                responseCode: 200,
+                responseCode: _getResponseCode(Response.OK),
                 ttl: ttl,
                 mode: _pool[code].mode,
                 sipUri: "",
