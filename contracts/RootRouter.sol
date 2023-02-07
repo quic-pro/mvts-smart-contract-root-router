@@ -360,6 +360,7 @@ contract RootRouter is ERC721, Ownable {
         paid(modeChangePrice)
         onlyValidCode(code)
         onlyCodeOwner(code)
+        onlyActiveCode(code)
         external
         payable
     {
@@ -375,8 +376,8 @@ contract RootRouter is ERC721, Ownable {
     function setCodeSipDomain(uint256 code, string memory newSipDomain)
         onlyValidCode(code)
         onlyCodeOwner(code)
-        onlyNumber(code)
         onlyActiveCode(code)
+        onlyNumber(code)
         external
     {
         _pool[code].sipDomain = newSipDomain;
@@ -385,8 +386,8 @@ contract RootRouter is ERC721, Ownable {
     function clearCodeSipDomain(uint256 code)
         onlyValidCode(code)
         onlyCodeOwner(code)
-        onlyNumber(code)
         onlyActiveCode(code)
+        onlyNumber(code)
         external
     {
         delete _pool[code].sipDomain;
@@ -395,8 +396,8 @@ contract RootRouter is ERC721, Ownable {
     function setCodeRouter(uint256 code, uint256 newChainId, string memory newAdr, uint256 newPoolCodeLength)
         onlyValidCode(code)
         onlyCodeOwner(code)
-        onlyPool(code)
         onlyActiveCode(code)
+        onlyPool(code)
         external
     {
         _pool[code].router = Router({
@@ -409,8 +410,8 @@ contract RootRouter is ERC721, Ownable {
     function clearCodeRouter(uint256 code)
         onlyValidCode(code)
         onlyCodeOwner(code)
-        onlyPool(code)
         onlyActiveCode(code)
+        onlyPool(code)
         external
     {
         delete _pool[code].router;
