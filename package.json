@@ -1,6 +1,6 @@
 {
   "name": "mvts-smart-contract-root-router",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Smart contract for decentralized phone numbering plan.",
   "scripts": {
     "lint": "hardhat check",
