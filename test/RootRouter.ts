@@ -3,7 +3,7 @@ import chai, {expect} from 'chai';
 import {ethers} from 'hardhat';
 
 import {RootRouter} from '../typechain-types';
-import {DAY, YEAR} from './constants';
+import {DAY, MONTH, YEAR} from './constants';
 
 
 chai.use(require('chai-string'));
@@ -626,6 +626,43 @@ describe('RootRouter', () => {
 
         await expect(rootRouter.connect(verificationOperator).setCodeVerifiedStatus(code, !newVerifiedStatus)).not.to.be.reverted;
         expectCodeData(await rootRouter.getCodeData(code), {isVerified: !newVerifiedStatus});
+    });
+
+    it('Method setCodeSubscription: if code is invalid', async () => {
+        const {rootRouter} = await loadFixture(deploy);
+        const newSubscriptionEndTime = await getEndTime(0);
+
+        await expect(rootRouter.setCodeSubscription(POOL_SIZE, newSubscriptionEndTime, newSubscriptionEndTime)).to.revertedWith(REASON_INVALID_CODE);
+    });
+
+    it('Method setCodeSubscription: if caller is not the owner', async () => {
+        const {rootRouter, accounts: [client]} = await loadFixture(deploy);
+        const code = 100, newSubscriptionEndTime = await getEndTime(0);
+
+        await expect(rootRouter.connect(client).setCodeSubscription(code, newSubscriptionEndTime, newSubscriptionEndTime)).to.revertedWith(REASON_CALLER_IS_NOT_THE_OWNER);
+    });
+
+    it('Method setCodeSubscription: if caller is the contract owner', async () => {
+        const {rootRouter, owner} = await loadFixture(deploy);
+        const code = 100, newSubscriptionEndTime = await getEndTime(SUBSCRIPTION_DURATION.add(YEAR));
+
+        await rootRouter.mint(code);
+
+        await rootRouter.connect(owner).setCodeSubscription(code, newSubscriptionEndTime, newSubscriptionEndTime);
+
+        expectCodeData(await rootRouter.getCodeData(code), {
+            subscriptionEndTime: newSubscriptionEndTime,
+            holdEndTime: newSubscriptionEndTime,
+        });
+    });
+
+    it('Method setCodeSubscription: if new hold end time is invalid', async () => {
+        const {rootRouter, owner} = await loadFixture(deploy);
+        const code = 100, newSubscriptionEndTime = await getEndTime(YEAR), newHoldEndTime = await getEndTime(MONTH);
+
+        await rootRouter.mint(code);
+
+        await expect(rootRouter.connect(owner).setCodeSubscription(code, newSubscriptionEndTime, newHoldEndTime)).to.revertedWith(REASON_INVALID_NEW_HOLD_END_TIME);
     });
 
     it('Method setCodeSubscriptionEndTime: if code is invalid', async () => {
