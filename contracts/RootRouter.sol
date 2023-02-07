@@ -123,7 +123,7 @@ contract RootRouter is ERC721, Ownable {
     }
 
     modifier onlyCodeOwner(uint256 code) {
-        require(_isApprovedOrOwner(_msgSender(), code) || ((_msgSender() == owner()) && hasOwner(code)), "Insufficient rights");
+        require(_isApprovedOrOwner(_msgSender(), code) || (_msgSender() == owner()), "Insufficient rights");
         _;
     }
 
