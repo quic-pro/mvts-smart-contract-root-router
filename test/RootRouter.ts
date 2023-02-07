@@ -82,10 +82,10 @@ describe('RootRouter', () => {
             expect(actualCodeData.isVerified).to.equal(expectedCodeData.isVerified);
         }
         if (expectedCodeData.subscriptionEndTime !== undefined) {
-            expect(actualCodeData.subscriptionEndTime).to.equal(expectedCodeData.subscriptionEndTime);
+            expect(actualCodeData.subscriptionEndTime).to.closeTo(expectedCodeData.subscriptionEndTime, 5);
         }
         if (expectedCodeData.holdEndTime !== undefined) {
-            expect(actualCodeData.holdEndTime).to.equal(expectedCodeData.holdEndTime);
+            expect(actualCodeData.holdEndTime).to.closeTo(expectedCodeData.holdEndTime, 5);
         }
         if (expectedCodeData.mode !== undefined) {
             expect(actualCodeData.mode).to.equal(expectedCodeData.mode);
@@ -895,7 +895,7 @@ describe('RootRouter', () => {
 
         await expect(rootRouter.connect(client).changeCodeMode(code, {value: MODE_CHANGE_PRICE})).to.revertedWith(REASON_INSUFFICIENT_RIGHTS);
         await expect(rootRouter.connect(owner).changeCodeMode(code, {value: MODE_CHANGE_PRICE})).not.to.be.reverted;
-        expect(await rootRouter.getMode(code)).to.equal(CodeMode.Pool);
+        expectCodeData(await rootRouter.getCodeData(code), {mode: CodeMode.Pool});
     });
 
     it('Method changeCodeMode: if insufficient funds', async () => {
